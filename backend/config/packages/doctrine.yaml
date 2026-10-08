@@ -1,6 +1,15 @@
 doctrine:
     dbal:
-        url: '%env(resolve:DATABASE_URL)%'
+        # Paramètres séparés (et non une URL) : un mot de passe contenant @ / # ? : ou des
+        # accents n'a pas besoin d'être encodé.
+        driver: pdo_pgsql
+        host: '%env(DB_HOST)%'
+        port: '%env(int:DB_PORT)%'
+        dbname: '%env(DB_NAME)%'
+        user: '%env(DB_USER)%'
+        password: '%env(DB_PASSWORD)%'
+        server_version: '%env(DB_SERVER_VERSION)%'
+        charset: utf8
         profiling_collect_backtrace: '%kernel.debug%'
         use_savepoints: true
     orm:

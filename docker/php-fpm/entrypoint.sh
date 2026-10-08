@@ -13,7 +13,7 @@ if [ ! -f config/jwt/private.pem ]; then
 fi
 chown www-data:www-data config/jwt/*.pem && chmod 640 config/jwt/private.pem
 
-# Attente de la base, avec la même configuration que l'application (DATABASE_URL lue par Doctrine)
+# Attente de la base, avec la même configuration que l'application (variables DB_* lues par Doctrine)
 log "Attente de PostgreSQL…"
 i=0
 until php bin/console dbal:run-sql -q "SELECT 1" >/dev/null 2>&1; do

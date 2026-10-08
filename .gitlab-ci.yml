@@ -11,7 +11,11 @@ backend:
     POSTGRES_DB: geosamples_test
     POSTGRES_USER: tester
     POSTGRES_PASSWORD: test_password
-    DATABASE_URL: "postgresql://tester:test_password@database:5432/geosamples?serverVersion=18&charset=utf8"
+    DB_HOST: database
+    DB_NAME: geosamples
+    DB_USER: tester
+    DB_PASSWORD: test_password
+    DB_SERVER_VERSION: "18"
   before_script:
     - apk add --no-cache postgresql-dev icu-dev libzip-dev openssl git unzip $PHPIZE_DEPS
     - docker-php-ext-install pdo_pgsql intl zip
@@ -20,7 +24,6 @@ backend:
     - mkdir -p config/jwt
     - openssl genpkey -algorithm RSA -out config/jwt/private.pem -aes256 -pass pass:change-me-jwt-passphrase -pkeyopt rsa_keygen_bits:2048
     - openssl pkey -in config/jwt/private.pem -passin pass:change-me-jwt-passphrase -pubout -out config/jwt/public.pem
-    - printf 'DATABASE_URL="%s"\n' "$DATABASE_URL" >> .env.test
   script:
     - vendor/bin/phpunit
   cache:

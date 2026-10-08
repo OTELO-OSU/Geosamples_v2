@@ -56,3 +56,18 @@ et leurs responsables.
 ```sh
 git pull && docker compose up -d --build   # les migrations s'appliquent au démarrage de php
 ```
+
+## Dépannage : « Attente de PostgreSQL… » sans fin
+
+```sh
+docker compose ps                                                   # database doit être « healthy »
+docker compose exec php php bin/console dbal:run-sql "SELECT 1"     # affiche l'erreur réelle
+```
+
+- `password authentication failed` : `POSTGRES_PASSWORD` a été modifié **après** la première
+  initialisation de `docker_data/postgres` ; PostgreSQL a gardé l'ancien mot de passe. Soit on aligne
+  la base :
+  `docker compose exec database psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "ALTER USER \"$POSTGRES_USER\" PASSWORD '<nouveau>'"`,
+  soit, si elle ne contient encore rien : `docker compose down && rm -rf docker_data/postgres && docker compose up -d`.
+- `could not translate host name "database"` : le conteneur php n'est pas sur le réseau du projet
+  (lancer les deux services avec le même `docker compose`).

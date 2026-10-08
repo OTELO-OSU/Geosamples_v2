@@ -18,7 +18,12 @@ services:
     env_file: .env
     environment:
       APP_ENV: prod
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}?serverVersion=18&charset=utf8
+      DB_HOST: database
+      DB_PORT: '5432'
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_SERVER_VERSION: '18'
     volumes:
       - ./docker_data/uploads:/var/www/backend/var/uploads
       - ./docker_data/jwt:/var/www/backend/config/jwt
