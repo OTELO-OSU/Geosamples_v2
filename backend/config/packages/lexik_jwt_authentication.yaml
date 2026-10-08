@@ -1,0 +1,8 @@
+lexik_jwt_authentication:
+    secret_key: '%env(resolve:JWT_SECRET_KEY)%'
+    public_key: '%env(resolve:JWT_PUBLIC_KEY)%'
+    pass_phrase: '%env(JWT_PASSPHRASE)%'
+    # Jeton d'accès court, gardé en mémoire côté front (comme ORDaR v2) ;
+    # la continuité de session repose sur le refresh token en cookie HttpOnly.
+    token_ttl: 900
+    user_id_claim: email

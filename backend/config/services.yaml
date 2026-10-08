@@ -1,0 +1,40 @@
+parameters:
+    app.upload_dir: '%env(resolve:UPLOAD_DIR)%'
+    app.max_upload_bytes: '%env(int:MAX_UPLOAD_BYTES)%'
+    app.refresh_ttl: '%env(int:REFRESH_TOKEN_TTL)%'
+    app.cookie_secure: '%env(bool:COOKIE_SECURE)%'
+    app.default_site: '%env(DEFAULT_SITE)%'
+    app.federation_mode: '%env(FEDERATION_MODE)%'
+    app.mail_from: '%env(MAIL_FROM)%'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        bind:
+            string $uploadDir: '%app.upload_dir%'
+            int $maxUploadBytes: '%app.max_upload_bytes%'
+            int $refreshTtl: '%app.refresh_ttl%'
+            bool $cookieSecure: '%app.cookie_secure%'
+            string $defaultSite: '%app.default_site%'
+            string $federationMode: '%app.federation_mode%'
+            string $mailFrom: '%app.mail_from%'
+            Symfony\Component\RateLimiter\RateLimiterFactory $loginIpLimiter: '@limiter.login_ip'
+            Symfony\Component\RateLimiter\RateLimiterFactory $loginAccountLimiter: '@limiter.login_account'
+            Symfony\Component\RateLimiter\RateLimiterFactory $joinRequestLimiter: '@limiter.join_request'
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    App\Service\FederationService:
+        arguments:
+            $oidcIssuer: '%env(OIDC_ISSUER)%'
+            $oidcClientId: '%env(OIDC_CLIENT_ID)%'
+            $oidcClientSecret: '%env(OIDC_CLIENT_SECRET)%'
+            $oidcScopes: '%env(OIDC_SCOPES)%'
+            $shibHeaders: '%env(json:SHIB_HEADERS)%'
+            $shibSharedSecret: '%env(SHIB_SHARED_SECRET)%'
+            $appSecret: '%env(APP_SECRET)%'

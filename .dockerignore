@@ -1,0 +1,8 @@
+**/node_modules
+front/dist
+backend/vendor
+backend/var
+backend/config/jwt/*.pem
+backend/.env.local
+docker_data
+.git

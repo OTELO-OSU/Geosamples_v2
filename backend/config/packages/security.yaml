@@ -1,0 +1,32 @@
+security:
+    password_hashers:
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
+    providers:
+        app_user_provider:
+            entity:
+                class: App\Entity\User
+                property: email
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt))/
+            security: false
+        main:
+            lazy: true
+            stateless: true
+            provider: app_user_provider
+            jwt: ~
+    # Les autorisations fines (rôles par site) sont gérées par les voters
+    # App\Security\SiteVoter et App\Security\DatasetVoter.
+    access_control:
+        - { path: ^/api/admin, roles: ROLE_ADMIN }
+    role_hierarchy:
+        ROLE_ADMIN: [ROLE_USER]
+
+when@test:
+    security:
+        password_hashers:
+            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+                algorithm: auto
+                cost: 4
+                time_cost: 3
+                memory_cost: 10

@@ -1,0 +1,36 @@
+{
+  "name": "geosamples-front",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:docker": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fontsource/archivo": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@mdi/font": "^7.4.47",
+    "axios": "^1.20.0",
+    "dayjs": "^1.11.23",
+    "dompurify": "^3.4.16",
+    "exceljs": "^4.4.0",
+    "leaflet": "^1.9.4",
+    "leaflet.markercluster": "^1.5.3",
+    "marked": "^18.1.0",
+    "papaparse": "^5.7.0",
+    "pinia": "^3.0.4",
+    "proj4": "^2.22.0",
+    "vue": "^3.5.43",
+    "vue-router": "^4.6.4",
+    "vuetify": "^3.13.6"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.9",
+    "sass-embedded": "^1.105.1",
+    "vite": "^7.3.7",
+    "vite-plugin-vuetify": "^2.1.3"
+  }
+}

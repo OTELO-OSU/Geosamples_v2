@@ -1,0 +1,1 @@
+15 3 * * * su-exec www-data php /var/www/backend/bin/console app:auth:purge >/proc/1/fd/1 2>&1
