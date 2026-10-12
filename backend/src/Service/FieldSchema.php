@@ -90,12 +90,19 @@ final class FieldSchema
 
     /**
      * Contrôle les valeurs d'un objet properties pour la portée donnée.
-     * @return array{0: array, 1: array<string,string>} [valeurs normalisées, erreurs]
+     *
+     * $keepInvalid (reprise de données) : une valeur qui ne passe pas la validation est
+     * conservée telle quelle au lieu d'être écartée ; l'erreur est seulement signalée.
+     *
+     * @return array{0: array, 1: array<string,string>, 2: array<string,string>}
+     *         [valeurs, erreurs, valeurs d'origine des champs invalides (même clés que les erreurs)]
+     *         Une erreur sans valeur d'origine = champ obligatoire absent.
      */
-    public function validateValues(array $fields, array $values, string $scope, string $prefix = 'properties'): array
+    public function validateValues(array $fields, array $values, string $scope, string $prefix = 'properties', bool $keepInvalid = false): array
     {
         $clean = [];
         $errors = [];
+        $origins = [];
         foreach ($fields as $f) {
             if (($f['scope'] ?? 'dataset') !== $scope) {
                 continue;
@@ -113,9 +120,13 @@ final class FieldSchema
                 $clean[$key] = $this->coerce($f, $raw);
             } catch (\InvalidArgumentException $e) {
                 $errors["$prefix.$key"] = sprintf('« %s » : %s', $f['label'], $e->getMessage());
+                $origins["$prefix.$key"] = \is_scalar($raw) ? (string) $raw : (string) json_encode($raw, JSON_UNESCAPED_UNICODE);
+                if ($keepInvalid) {
+                    $clean[$key] = $raw;
+                }
             }
         }
-        return [$clean, $errors];
+        return [$clean, $errors, $origins];
     }
 
     private function coerce(array $f, mixed $raw): mixed

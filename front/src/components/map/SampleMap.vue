@@ -131,22 +131,44 @@ function render(data) {
     serverLayer.addLayer(mk)
   }
 
-  // Fusion des observations d'un même jeu au même endroit (séries temporelles)
-  const stations = new Map()
-  for (const p of data.points) {
-    const k = `${p.dataset}|${p.lat.toFixed(6)}|${p.lon.toFixed(6)}`
-    const s = stations.get(k)
-    if (s) { s.n++; s.dates.push(p.date); s.values.push(p.v) } else stations.set(k, { ...p, n: 1, dates: [p.date], values: [p.v] })
-  }
+  // The backend groups observations by coordinate across all datasets.
   scale.value = colorBy.value === 'none' ? { colorOf: () => null, legend: [], kind: 'none' } : buildScale(data.points.map((p) => p.v), colorField.value, { grouping: colorBy.value !== 'year' })
 
   const layers = []
-  for (const s of stations.values()) {
-    const color = scale.value.colorOf(s.values[s.values.length - 1]) || 'rgb(var(--v-theme-primary))'
-    const sel = s.dataset === props.selected
-    const mk = L.marker([s.lat, s.lon], { icon: pointIcon(color, s.n, sel), keyboard: true, title: s.title, riseOnHover: true })
-    mk.bindTooltip(tooltip(s), { direction: 'top', offset: [0, -8], opacity: 1, className: 'gs-tip' })
-    mk.on('click', () => emit('select', s.dataset))
+  for (const p of data.points) {
+    const datasets = p.datasets || []
+    const selectedDataset = datasets.find((d) => d.dataset === props.selected)
+    const color = scale.value.colorOf(p.v) || 'rgb(var(--v-theme-primary))'
+    const mk = L.marker([p.lat, p.lon], {
+      icon: pointIcon(color, p.datasetCount || p.count || 1, Boolean(selectedDataset)),
+      keyboard: true,
+      title: datasets.map((d) => d.title).filter(Boolean).join(', '),
+      riseOnHover: true,
+    })
+
+    if (datasets.length === 1) {
+      const dataset = datasets[0]
+      const station = { ...dataset, n: p.count || 1, dates: [], values: [] }
+      mk.bindTooltip(tooltip(station), { direction: 'top', offset: [0, -8], opacity: 1, className: 'gs-tip' })
+      mk.on('click', () => emit('select', dataset.dataset))
+    } else if (datasets.length > 1) {
+      const div = document.createElement('div')
+      const heading = document.createElement('strong')
+      heading.textContent = `${datasets.length} jeux de données à cet emplacement`
+      div.appendChild(heading)
+      datasets.forEach((dataset) => {
+        const button = document.createElement('button')
+        button.type = 'button'
+        button.textContent = dataset.title || dataset.dataset
+        button.style.display = 'block'
+        button.style.width = '100%'
+        button.style.textAlign = 'left'
+        button.style.marginTop = '4px'
+        button.addEventListener('click', () => emit('select', dataset.dataset))
+        div.appendChild(button)
+      })
+      mk.bindPopup(div)
+    }
     layers.push(mk)
   }
   clusterLayer.addLayers(layers)

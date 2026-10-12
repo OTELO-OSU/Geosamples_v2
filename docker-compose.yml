@@ -17,13 +17,13 @@ services:
     container_name: geosamples-php
     env_file: .env
     environment:
-      APP_ENV: prod
-      DB_HOST: database
-      DB_PORT: '5432'
+      APP_ENV: ${APP_ENV:-prod}
+      DB_HOST: ${POSTGRES_HOST:-database}
+      DB_PORT: ${POSTGRES_PORT:-5432}
       DB_NAME: ${POSTGRES_DB}
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
-      DB_SERVER_VERSION: '18'
+      DB_SERVER_VERSION: ${POSTGRES_VERSION:-18}
     volumes:
       - ./docker_data/uploads:/var/www/backend/var/uploads
       - ./docker_data/jwt:/var/www/backend/config/jwt

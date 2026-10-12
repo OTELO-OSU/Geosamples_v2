@@ -59,8 +59,44 @@ final class DatasetController extends ApiController
     public function map(string $slug, Request $request): JsonResponse
     {
         $site = $this->site($slug);
-        $resp = $this->json($this->query->map($site, $this->query->filtersFromRequest($request), $request->query->getInt('zoom', 6)));
-        return $resp;
+        $data = $this->query->map(
+            $site,
+            $this->query->filtersFromRequest($request),
+            $request->query->getInt('zoom', 6),
+        );
+
+        // Group point-level results by coordinate across datasets.
+        if (isset($data['points']) && is_array($data['points'])) {
+            $groups = [];
+            foreach ($data['points'] as $point) {
+                if (!isset($point['lat'], $point['lon']) || !is_numeric($point['lat']) || !is_numeric($point['lon'])) {
+                    continue;
+                }
+                $lat = (float) $point['lat'];
+                $lon = (float) $point['lon'];
+                $key = sprintf('%.7F/%.7F', $lat, $lon);
+                if (!isset($groups[$key])) {
+                    $groups[$key] = ['lat' => $lat, 'lon' => $lon, 'count' => 0, 'datasets' => [], 'v' => $point['v'] ?? null];
+                }
+                $groups[$key]['count']++;
+                $datasetId = (string) ($point['dataset'] ?? '');
+                if ($datasetId !== '' && !isset($groups[$key]['datasets'][$datasetId])) {
+                    $groups[$key]['datasets'][$datasetId] = [
+                        'dataset' => $datasetId,
+                        'title' => $point['title'] ?? $datasetId,
+                        'name' => $point['name'] ?? null,
+                        'elev' => $point['elev'] ?? null,
+                        'status' => $point['status'] ?? null,
+                    ];
+                }
+            }
+            $data['points'] = array_values(array_map(static function (array $group): array {
+                $group['datasets'] = array_values($group['datasets']);
+                $group['datasetCount'] = count($group['datasets']);
+                return $group;
+            }, $groups));
+        }
+        return $this->json($data);
     }
 
     #[Route('/api/sites/{slug}/facets', methods: ['GET'])]

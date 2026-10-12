@@ -73,6 +73,26 @@ Ajouter un site de valorisation :
 
 ## Reprise des anciens sites geo-samples
 
+Depuis les fichiers bson:
+```
+docker exec -e APP_ENV=prod -w /var/www/backend geosamples-php php bin/console app:site:create \
+acev athabasca gitology mobised moris next next-dev nometal orne scandium \
+petrophysics-allemagne petrophysics-ardeche petrophysics-fosserhenan \
+petrophysics-guadeloupe petrophysics-limagne petrophysics-pyrenees \
+petrophysics-soultz petrophysics-vosges
+```
+
+Dry run: 
+```
+PHP_CONTAINER=geosamples-php PHP_WORKDIR=/var/www/backend ONLY=nometal ./migrate_all.sh ./ORDAR/*
+```
+
+Vrai import: 
+``` 
+RUN=1 PHP_CONTAINER=geosamples-php PHP_WORKDIR=/var/www/backend ONLY=nometal ./migrate_all.sh ./ORDAR/
+```
+Import avec mongoexport:
+
 ```sh
 mongoexport --db=<base> --collection=<collection> --jsonArray -o export.json
 php bin/console app:legacy:import <slug> export.json --dry-run --create-fields
