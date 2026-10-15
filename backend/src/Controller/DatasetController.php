@@ -118,7 +118,7 @@ final class DatasetController extends ApiController
     {
         $site = $this->site($slug);
         $user = $this->perm->requireUser();
-        $this->perm->denyUnless($this->perm->canContribute($site), 'Vous devez être membre du site pour déposer des données');
+        $this->perm->denyUnless($this->perm->canCreateDataset($site), 'Vous devez être referent du site pour déposer des données');
         $payload = $this->body($request);
         $d = new Dataset($site, $user);
         $this->writer->apply($d, $payload);

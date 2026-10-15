@@ -84,7 +84,15 @@
       <v-list density="compact" class="bg-transparent">
         <v-list-item v-for="f in otherFiles" :key="f.id" :title="f.name" :subtitle="fmtBytes(f.size)" prepend-icon="mdi-file-outline">
           <template #append>
-            <v-btn v-if="ds.can.download" :href="f.url" variant="text" size="small" prepend-icon="mdi-download">Télécharger</v-btn>
+            <v-btn
+              v-if="ds.can.download"
+              variant="text"
+              size="small"
+              prepend-icon="mdi-download"
+              @click="downloadFile(f)"
+            >
+              Télécharger
+            </v-btn>
             <v-icon v-else size="small">mdi-lock-outline</v-icon>
           </template>
         </v-list-item>
@@ -104,6 +112,7 @@ import { computed, ref, watch } from 'vue'
 import { STATUS, fmtBytes, fmtDate, fmtElevation, fmtNumber, fmtPeriod, fmtValue } from '@/utils/format'
 import MiniMap from './MiniMap.vue'
 import PointsChart from './PointsChart.vue'
+import api from '@/api/client'
 
 const props = defineProps({ ds: { type: Object, required: true }, site: { type: Object, required: true }, compact: Boolean })
 const zoom = ref(null)
@@ -141,6 +150,38 @@ const pointRows = computed(() => props.ds.points.map((p) => ({
 
 const pictures = computed(() => props.ds.files.filter((f) => f.kind === 'picture'))
 const otherFiles = computed(() => props.ds.files.filter((f) => f.kind !== 'picture' || !props.ds.can.download))
+
+
+function filenameFromHeaders(headers, fallback) {
+  const cd = headers['content-disposition'] || ''
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(cd)
+  if (utf8) return decodeURIComponent(utf8[1])
+  const plain = /filename="?([^";]+)"?/i.exec(cd)
+  return plain ? plain[1] : fallback
+}
+
+async function downloadFile(f) {
+  try {
+    const res = await api.get(`/api/files/${f.id}`, { responseType: 'blob' })
+    const url = URL.createObjectURL(res.data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filenameFromHeaders(res.headers, f.originalName ?? f.name ?? 'fichier')
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    // with responseType 'blob', the error body is also a Blob
+    let msg = 'Téléchargement impossible'
+    try {
+      const body = JSON.parse(await e.response.data.text())
+      msg = body.error || msg
+    } catch { /* keep default message */ }
+    // show msg in a snackbar
+  }
+}
+
 </script>
 
 <style scoped>

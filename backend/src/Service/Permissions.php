@@ -53,7 +53,11 @@ final class Permissions
 
     public function canContribute(Site $site): bool
     {
-        // retirer la vérification de role pour permettre aux membres non manager de créer des jeux
+        return $this->isAdmin() || (bool) $this->membership($site)?->isActive();
+    }
+
+    public function canCreateDataset(Site $site): bool
+    {
         return $this->isAdmin() || ( (bool) $this->membership($site)?->isActive() && (bool) $this->membership($site)?->isManager());
     }
 
