@@ -54,8 +54,22 @@ final class DatasetQuery
             'bbox' => $q['bbox'] ?? null,
             'scope' => $q['scope'] ?? 'public',
             'status' => $q['status'] ?? null,
+            'nature'     => $this->listParam($q['nature'] ?? []),
+            'sampleType' => $this->listParam($q['sample-type'] ?? []),
             'f' => \is_array($f) ? $f : [],
         ];
+    }
+
+    private function listParam(mixed $v): array
+    {
+        $v = \is_array($v) ? $v : explode(',', (string) $v);
+        return array_values(array_filter(array_map(fn ($x) => trim((string) $x), $v), static fn ($x) => $x !== ''));
+    }
+
+    /** Tableau JSONB sûr : '[]' si la clé est absente ou n'est pas un tableau. */
+    private function jsonArr(string $expr): string
+    {
+        return "(CASE WHEN jsonb_typeof($expr) = 'array' THEN $expr ELSE '[]'::jsonb END)";
     }
 
     /**
@@ -102,6 +116,29 @@ final class DatasetQuery
             $p = $this->p();
             $dw[] = "EXISTS (SELECT 1 FROM jsonb_array_elements_text(d.keywords::jsonb) k WHERE lower(k) = lower(:$p))";
             $params[$p] = $kw;
+        }
+
+        if (!empty($f['nature'])) {
+            $vp = $this->p();
+            $params[$vp] = $f['nature'];
+            $types[$vp] = ArrayParameterType::STRING;
+            $dw[] = "EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements(" . $this->jsonArr("d.properties -> 'source_measurements'") . ") AS sm(v),
+                    jsonb_array_elements(" . $this->jsonArr("sm.v -> 'measurements'") . ") AS m(v)
+                WHERE m.v ->> 'NATURE' IN (:$vp)
+            )";
+        }
+        if (!empty($f['sampleType'])) {
+            $vp = $this->p();
+            $params[$vp] = $f['sampleType'];
+            $types[$vp] = ArrayParameterType::STRING;
+            $dw[] = "EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements(" . $this->jsonArr("d.properties -> 'source_samples'") . ") AS ss(v),
+                    jsonb_array_elements(" . $this->jsonArr("ss.v -> 'samples'") . ") AS s(v)
+                WHERE s.v ->> 'sample kind' IN (:$vp)
+            )";
         }
 
         // Champs spécifiques filtrables
@@ -545,6 +582,26 @@ final class DatasetQuery
             }
         }
 
+        $natures = $this->db->fetchAllAssociative(
+            "SELECT m.v ->> 'NATURE' AS value, count(DISTINCT d.id) AS n
+            FROM dataset d
+            CROSS JOIN LATERAL jsonb_array_elements(" . $this->jsonArr("d.properties -> 'source_measurements'") . ") AS sm(v)
+            CROSS JOIN LATERAL jsonb_array_elements(" . $this->jsonArr("sm.v -> 'measurements'") . ") AS m(v)
+            WHERE $dWhere AND m.v ->> 'NATURE' IS NOT NULL
+            GROUP BY 1 ORDER BY 2 DESC, 1 ASC LIMIT 200",
+            $params, $types
+        );
+        $sampleTypes = $this->db->fetchAllAssociative(
+            "SELECT s.v ->> 'sample kind' AS value, count(DISTINCT d.id) AS n
+            FROM dataset d
+            CROSS JOIN LATERAL jsonb_array_elements(" . $this->jsonArr("d.properties -> 'source_samples'") . ") AS ss(v)
+            CROSS JOIN LATERAL jsonb_array_elements(" . $this->jsonArr("ss.v -> 'samples'") . ") AS s(v)
+            WHERE $dWhere AND s.v ->> 'sample kind' IS NOT NULL
+            GROUP BY 1 ORDER BY 2 DESC, 1 ASC LIMIT 200",
+            $params, $types
+        );
+        $fmt = fn (array $rows) => array_map(fn ($r) => ['value' => $r['value'], 'count' => (int) $r['n']], $rows);
+
         return [
             'datasets' => (int) $stats['n_datasets'],
             'points' => (int) $stats['n_points'],
@@ -554,6 +611,8 @@ final class DatasetQuery
             'keywords' => array_map(fn ($r) => ['value' => $r['value'], 'count' => (int) $r['n']], $keywords),
             'fields' => (object) $fields,
             'statusCounts' => $statusCounts,
+            'measurement' => ['nature' => $fmt($natures)],
+            'sample'      => ['sample-type' => $fmt($sampleTypes)],
         ];
     }
 

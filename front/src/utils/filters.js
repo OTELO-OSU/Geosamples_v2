@@ -1,12 +1,14 @@
 /** Filtres de recherche ↔ paramètres d'API ↔ query string (liens partageables). */
 export function emptyFilters() {
-  return { q: '', kw: [], from: null, to: null, elevMin: null, elevMax: null, f: {} }
+  return { q: '', kw: [], from: null, to: null, elevMin: null, elevMax: null, f: {}, nature:[], 'sample-type':[] }
 }
 
 export function toParams(f, { omit = [] } = {}) {
   const p = {}
   if (f.q && !omit.includes('q')) p.q = f.q
   if (f.kw?.length && !omit.includes('kw')) p.kw = f.kw.join(',')
+  if (f.nature?.length && !omit.includes('nature')) p.nature = f.nature.join(',')
+  if (f['sample-type']?.length && !omit.includes('sample-type')) p['sample-type'] = f['sample-type'].join(',')
   for (const k of ['from', 'to', 'elevMin', 'elevMax']) if (f[k] !== null && f[k] !== '' && f[k] !== undefined && !omit.includes(k)) p[k] = f[k]
   for (const [key, v] of Object.entries(f.f || {})) {
     if (omit.includes(`f.${key}`)) continue
@@ -23,6 +25,8 @@ export function fromQuery(q, fields) {
   const f = emptyFilters()
   if (q.q) f.q = String(q.q)
   if (q.kw) f.kw = String(q.kw).split(',').filter(Boolean)
+  if (q.nature) f.nature = String(q.nature).split(',').filter(Boolean)
+  if (q['sample-type']) f['sample-type'] = String(q['sample-type']).split(',').filter(Boolean)
   for (const k of ['from', 'to']) if (q[k]) f[k] = String(q[k])
   for (const k of ['elevMin', 'elevMax']) if (q[k] !== undefined && q[k] !== '') f[k] = Number(q[k])
   for (const fd of fields) {

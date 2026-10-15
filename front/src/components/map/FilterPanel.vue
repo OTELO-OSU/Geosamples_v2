@@ -18,6 +18,38 @@
       </v-autocomplete>
     </section>
 
+    <section v-if="natureOptions.length" class="gs-filters__block">
+      <h3 class="gs-filters__h">Type de mesure</h3>
+      <v-autocomplete
+        :model-value="modelValue.nature || []"
+        :items="natureOptions" item-title="value" item-value="value"
+        multiple chips closable-chips hide-details density="compact" placeholder="Choisir…"
+        @update:model-value="set({ nature: $event })"
+      >
+        <template #item="{ props: p, item }">
+          <v-list-item v-bind="p">
+            <template #append><span class="gs-count">{{ item.raw.count }}</span></template>
+          </v-list-item>
+        </template>
+      </v-autocomplete>
+    </section>
+
+    <section v-if="sampleTypeOptions.length" class="gs-filters__block">
+      <h3 class="gs-filters__h">Type d'échantillon</h3>
+      <v-autocomplete
+        :model-value="modelValue['sample-type'] || []"
+        :items="sampleTypeOptions" item-title="value" item-value="value"
+        multiple chips closable-chips hide-details density="compact" placeholder="Choisir…"
+        @update:model-value="set({ 'sample-type': $event })"
+      >
+        <template #item="{ props: p, item }">
+          <v-list-item v-bind="p">
+            <template #append><span class="gs-count">{{ item.raw.count }}</span></template>
+          </v-list-item>
+        </template>
+      </v-autocomplete>
+    </section>
+
     <section v-if="elev.max !== null && elev.min !== elev.max" class="gs-filters__block">
       <h3 class="gs-filters__h d-flex">Altitude <v-spacer /><span class="gs-count">{{ Math.round(elevLive[0]) }} – {{ Math.round(elevLive[1]) }} m</span></h3>
       <v-range-slider
@@ -99,6 +131,19 @@ function optionsFor(fd) {
   }
   return (fd.options || []).map((o) => ({ value: o }))
 }
+
+function withSelected(list, selected) {
+  const vals = list || []
+  const seen = new Set(vals.map((v) => v.value))
+  // les valeurs sélectionnées restent proposées même sans résultat
+  const extra = (selected || []).filter((v) => !seen.has(v)).map((v) => ({ value: v, count: 0 }))
+  return [...vals, ...extra]
+}
+
+const natureOptions = computed(() =>
+  withSelected(props.facets?.measurement?.nature, props.modelValue.nature))
+const sampleTypeOptions = computed(() =>
+  withSelected(props.facets?.sample?.['sample-type'], props.modelValue['sample-type']))
 
 function set(patch) { emit('update:modelValue', { ...props.modelValue, ...patch }) }
 function setField(key, value) { set({ f: { ...props.modelValue.f, [key]: value } }) }
