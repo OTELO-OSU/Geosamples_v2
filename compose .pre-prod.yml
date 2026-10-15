@@ -1,0 +1,54 @@
+# GeoSamples v2 — une seule instance pour tous les sites de valorisation.
+#   cp .env.example .env   # puis renseigner les secrets
+#   docker compose up -d --build
+#   docker compose exec php php bin/console app:user:create vous@univ-lorraine.fr --admin --password '…'
+services:
+  nginx:
+    build: { context: ., dockerfile: docker/nginx/Dockerfile }
+    container_name: geosamples-nginx
+    ports:
+      - '127.0.0.1:${HTTP_PORT:-57010}:80'
+    depends_on: [php]
+    restart: unless-stopped
+    networks: [geosamples]
+
+  php:
+    build: { context: ., dockerfile: docker/php-fpm/Dockerfile }
+    container_name: geosamples-php
+    env_file: .env
+    environment:
+      APP_ENV: ${APP_ENV:-prod}
+      DB_HOST: ${POSTGRES_HOST:-database}
+      DB_PORT: ${POSTGRES_PORT:-5432}
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_SERVER_VERSION: ${POSTGRES_VERSION:-18}
+    volumes:
+      - ./docker_data/uploads:/var/www/backend/var/uploads
+      - ./docker_data/jwt:/var/www/backend/config/jwt
+      - ./docker_data/logs:/var/www/backend/var/log
+    depends_on:
+      database: { condition: service_healthy }
+    restart: unless-stopped
+    networks: [geosamples]
+
+  database:
+    image: postgres:18-alpine
+    container_name: geosamples-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./docker_data/postgres:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks: [geosamples]
+
+networks:
+  geosamples:
