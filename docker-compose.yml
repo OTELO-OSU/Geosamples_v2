@@ -58,5 +58,17 @@ services:
     ports: ['127.0.0.1:8025:8025']
     networks: [geosamples]
 
+  adminer:
+    image: adminer:latest
+    container_name: geosamples-adminer
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks: [geosamples]
+
 networks:
   geosamples:
