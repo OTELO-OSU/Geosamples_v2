@@ -29,7 +29,14 @@
         <dl class="gs-meta">
           <template v-if="ds.keywords?.length"><dt>Mots-clés</dt><dd><v-chip v-for="k in ds.keywords" :key="k" size="small" class="mr-1 mb-1" variant="outlined">{{ k }}</v-chip></dd></template>
           <template v-for="f in datasetFields" :key="f.key">
-            <dt>{{ f.label }}</dt><dd>{{ fmtValue(f, ds.properties[f.key]) }}</dd>
+            <dt>{{ f.label }}</dt>
+            <dd v-if="!Array.isArray(ds.properties[f.key])">{{ fmtValue(f, ds.properties[f.key]) }}</dd>
+            <dd v-else>
+              <template v-for="v in ds.properties[f.key]" :key="v">
+                <dt>{{ f.label }}</dt>
+                <dd>{{ fmtValue(f, v) }}</dd>
+              </template>
+            </dd>
           </template>
           <template v-if="ds.license"><dt>Licence</dt><dd>{{ ds.license }}</dd></template>
           <dt>Accès aux fichiers</dt><dd>{{ ds.accessRight === 'open' ? 'Ouvert' : 'Réservé aux membres du projet' }}</dd>

@@ -119,6 +119,8 @@ const params = computed(() => toParams(filters.value))
 const mapParams = computed(() => params.value)
 const filterCount = computed(() => activeCount(filters.value))
 
+let fitted = false
+
 // Synchronisation avec l'URL (liens partageables)
 watch([params, selected], () => {
   const q = { ...params.value }
@@ -145,6 +147,11 @@ async function loadFacets() {
       full.points = cur.points
     }
     facets.value = full
+    // First load: frame the data (skip if a dataset from the URL will frame it)
+    if (!fitted && full.bbox && !selected.value) {
+      fitted = true
+      focus.value = [...full.bbox]
+    }
   } catch (e) {
     ui.error(errorMessage(e))
   }
@@ -164,11 +171,14 @@ async function loadList() {
 }
 
 async function loadPreview() {
+  const id = selected.value
   preview.value = null
-  if (!selected.value) return
+  if (!id) return
   try {
-    preview.value = (await api.get(`/api/sites/${site.value.slug}/datasets/${selected.value}`)).data
+    const d = (await api.get(`/api/sites/${site.value.slug}/datasets/${id}`)).data
+    if (id === selected.value) preview.value = d
   } catch (e) {
+    if (id !== selected.value) return
     ui.error(errorMessage(e, 'Jeu introuvable'))
     selected.value = null
   }

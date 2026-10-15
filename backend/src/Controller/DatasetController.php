@@ -4,7 +4,6 @@ namespace App\Controller;
 
 use App\Entity\Dataset;
 use App\Entity\DatasetFile;
-use App\Entity\Site;
 use App\Exception\ApiException;
 use App\Repository\DatasetRepository;
 use App\Service\DatasetQuery;
@@ -74,25 +73,33 @@ final class DatasetController extends ApiController
                 }
                 $lat = (float) $point['lat'];
                 $lon = (float) $point['lon'];
-                $key = sprintf('%.7F/%.7F', $lat, $lon);
+                $key = (string) ($point['loc'] ?? sprintf('c:%.5F/%.5F', $lat, $lon));
                 if (!isset($groups[$key])) {
-                    $groups[$key] = ['lat' => $lat, 'lon' => $lon, 'count' => 0, 'datasets' => [], 'v' => $point['v'] ?? null];
+                    $groups[$key] = [
+                        'lat' => $lat, 'lon' => $lon, 'count' => 0,
+                        'datasets' => [], 'observations' => [],
+                        'v' => $point['v'] ?? null,
+                    ];
                 }
                 $groups[$key]['count']++;
                 $datasetId = (string) ($point['dataset'] ?? '');
-                if ($datasetId !== '' && !isset($groups[$key]['datasets'][$datasetId])) {
-                    $groups[$key]['datasets'][$datasetId] = [
+                $name = $point['sample'] ?? $point['name'] ?? null;
+                $obsKey = (string) ($point['id'] ?? ($datasetId . '|' . $name . '|' . ($point['date'] ?? '') . '|' . ($point['elev'] ?? '')));
+                if ($datasetId !== '' && !isset($groups[$key]['observations'][$obsKey])) {
+                    $groups[$key]['observations'][$obsKey] = [
+                        'id'      => $point['id'] ?? null,
                         'dataset' => $datasetId,
-                        'title' => $point['title'] ?? $datasetId,
-                        'name' => $point['name'] ?? null,
-                        'elev' => $point['elev'] ?? null,
-                        'status' => $point['status'] ?? null,
+                        'title'   => $point['title'] ?? $datasetId,
+                        'name'    => $name,
+                        'date'    => $point['date'] ?? null,
+                        'elev'    => $point['elev'] ?? null,
                     ];
                 }
             }
             $data['points'] = array_values(array_map(static function (array $group): array {
                 $group['datasets'] = array_values($group['datasets']);
                 $group['datasetCount'] = count($group['datasets']);
+                $group['observations'] = array_values($group['observations']);
                 return $group;
             }, $groups));
         }

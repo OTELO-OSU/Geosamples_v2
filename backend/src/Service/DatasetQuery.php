@@ -23,6 +23,18 @@ final class DatasetQuery
     public const POINTS_THRESHOLD = 1500;
     public const MAX_POINTS = 20000;
 
+    private const HOLE_ID_PATH = "COALESCE(
+        NULLIF(trim(p.properties ->> 'hole_id'), ''),
+        NULLIF(trim(CASE WHEN left(p.properties ->> 'holeid_point', 1) = '{'
+                        THEN (p.properties ->> 'holeid_point')::jsonb ->> 'HOLEID' END), ''),
+        NULLIF(trim(p.properties #>> '{holeid_point,HOLEID}'), '')
+    )";
+
+    private const HOLE = "COALESCE(
+        'h:' || " . self::HOLE_ID_PATH . ",
+        'c:' || round(p.longitude::numeric, 5)::text || '/' || round(p.latitude::numeric, 5)::text
+    )";
+
     private int $pi = 0;
 
     public function __construct(private Connection $db, private Permissions $perm) {}
@@ -237,72 +249,199 @@ final class DatasetQuery
     public function map(Site $site, array $f, int $zoom): array
     {
         [$dw, $pw, $params, $types] = $this->build($site, $f);
+
         $where = $dw . ($pw !== '' ? " AND $pw" : '');
         $from = "FROM sampling_point p JOIN dataset d ON d.id = p.dataset_id WHERE $where";
-        $total = (int) $this->db->fetchOne("SELECT count(*) $from", $params, $types);
+
+        // Total number of samples
+        $total = (int) $this->db->fetchOne(
+            "SELECT count(*) $from",
+            $params,
+            $types
+        );
+
+        // Number of distinct holes/locations
+        $locations = (int) $this->db->fetchOne(
+            "SELECT count(*) FROM (
+                SELECT 1 $from
+                GROUP BY " . self::HOLE . "
+            ) g",
+            $params,
+            $types
+        );
+
         $zoom = max(0, min(22, $zoom));
+
         $mapCfg = $site->getMap();
         $maxZoom = (int) ($mapCfg['clusterMaxZoom'] ?? 14);
 
-        $usePoints = $total <= self::POINTS_THRESHOLD || ($zoom >= $maxZoom && $total <= self::MAX_POINTS);
-        if ($usePoints) {
-            return ['mode' => 'points', 'total' => $total, 'clusters' => [], 'points' => $this->pointRows($site, "$from", $params, $types, self::MAX_POINTS)];
-        }
+        // Show individual samples when there are few locations
+        $usePoints = $locations <= self::POINTS_THRESHOLD
+            || ($zoom >= $maxZoom && $total <= self::MAX_POINTS);
 
-        $scale = self::CLUSTER_CELL_PX / 256 / (2 ** $zoom);
-        $params['cx'] = 360 * $scale;
-        $params['cy'] = 2 * M_PI * $scale;
-        $rows = $this->db->fetchAllAssociative(
-            "SELECT count(*) AS n, avg(p.longitude) AS lon, avg(p.latitude) AS lat,
-                    min(p.longitude) AS w, min(p.latitude) AS s, max(p.longitude) AS e, max(p.latitude) AS nn,
-                    min(p.id) AS one_id, count(DISTINCT d.id) AS n_datasets
-             $from
-             GROUP BY floor(p.longitude / :cx),
-                      floor(ln(tan(pi()/4 + radians(LEAST(GREATEST(p.latitude, -85.05), 85.05)) / 2)) / :cy)",
-            $params, $types
-        );
-        $clusters = [];
-        $singles = [];
-        foreach ($rows as $r) {
-            if ((int) $r['n'] === 1) {
-                $singles[] = (int) $r['one_id'];
-                continue;
-            }
-            $clusters[] = [
-                'lat' => (float) $r['lat'], 'lon' => (float) $r['lon'], 'count' => (int) $r['n'],
-                'datasets' => (int) $r['n_datasets'],
-                'bbox' => [(float) $r['w'], (float) $r['s'], (float) $r['e'], (float) $r['nn']],
+        if ($usePoints) {
+            return [
+                'mode' => 'points',
+                'total' => $total,
+                'locations' => $locations,
+                'clusters' => [],
+                'points' => $this->pointRows(
+                    $site,
+                    $from,
+                    $params,
+                    $types,
+                    self::MAX_POINTS
+                ),
             ];
         }
-        $points = [];
-        if ($singles) {
-            $points = $this->pointRows($site, 'FROM sampling_point p JOIN dataset d ON d.id = p.dataset_id WHERE p.id IN (:singles)',
-                ['singles' => $singles], ['singles' => ArrayParameterType::INTEGER], \count($singles));
+
+        // Calculate cluster grid size according to zoom level
+        $scale = self::CLUSTER_CELL_PX / 256 / (2 ** $zoom);
+
+        $params['cx'] = 360 * $scale;
+        $params['cy'] = 2 * M_PI * $scale;
+
+        $rows = $this->db->fetchAllAssociative(
+        "WITH point_coordinates AS (
+            SELECT
+                p.id,
+                " . self::HOLE . " AS loc,
+                CASE
+                    WHEN left(p.properties ->> 'holeid_point', 1) = '{'
+                    THEN
+                        COALESCE(
+                            (p.properties ->> 'holeid_point')::jsonb
+                                ->> 'HOLEID_LONGITUDE',
+                            p.longitude::text
+                        )::double precision
+                    ELSE p.longitude
+                END AS lon,
+                CASE
+                    WHEN left(p.properties ->> 'holeid_point', 1) = '{'
+                    THEN
+                        COALESCE(
+                            (p.properties ->> 'holeid_point')::jsonb
+                                ->> 'HOLEID_LATITUDE',
+                            p.latitude::text
+                        )::double precision
+                    ELSE p.latitude
+                END AS lat
+            $from
+        )
+        SELECT
+            count(DISTINCT loc) AS n,
+            avg(lon) AS lon,
+            avg(lat) AS lat,
+            min(lon) AS w,
+            min(lat) AS s,
+            max(lon) AS e,
+            max(lat) AS nn,
+            json_agg(id) AS ids
+        FROM point_coordinates
+        GROUP BY
+            floor(lon / :cx),
+            floor(
+                ln(
+                    tan(
+                        pi()/4 + radians(
+                            LEAST(GREATEST(lat, -85.05), 85.05)
+                        ) / 2
+                    )
+                ) / :cy
+            )",
+        $params,
+        $types
+    );
+
+        $clusters = [];
+        $singles = [];
+
+        foreach ($rows as $r) {
+            if ((int) $r['n'] === 1) {
+                foreach (json_decode($r['ids'], true) as $id) {
+                    $singles[] = (int) $id;
+                }
+                continue;
+            }
+
+            $clusters[] = [
+                'lat' => (float) $r['lat'],
+                'lon' => (float) $r['lon'],
+                'count' => (int) $r['n'],
+                'bbox' => [
+                    (float) $r['w'],
+                    (float) $r['s'],
+                    (float) $r['e'],
+                    (float) $r['nn'],
+                ],
+            ];
         }
-        return ['mode' => 'clusters', 'total' => $total, 'clusters' => $clusters, 'points' => $points];
+
+        // Return individual points belonging to single-hole grid cells
+        $points = [];
+
+        if ($singles) {
+            $points = $this->pointRows(
+                $site,
+                'FROM sampling_point p
+                JOIN dataset d ON d.id = p.dataset_id
+                WHERE p.id IN (:singles)',
+                ['singles' => $singles],
+                ['singles' => ArrayParameterType::INTEGER],
+                count($singles)
+            );
+        }
+
+        return [
+            'mode' => 'clusters',
+            'total' => $total,
+            'locations' => $locations,
+            'clusters' => $clusters,
+            'points' => $points,
+        ];
     }
 
     private function pointRows(Site $site, string $from, array $params, array $types, int $limit): array
     {
         [$colorExpr, $colorParams] = $this->colorExpr($site);
         $rows = $this->db->fetchAllAssociative(
-            "SELECT p.id, p.longitude, p.latitude, p.elevation, p.name, d.uuid, d.title, d.status,
-                    COALESCE(p.observed_at, d.temporal_start) AS t, $colorExpr AS v
-             $from ORDER BY p.id LIMIT $limit",
-            $params + $colorParams, $types
+            "SELECT p.id, p.longitude, p.latitude, p.elevation, p.name, d.uuid, d.title, d.status, " . self::HOLE . " AS loc,
+            CASE
+                WHEN left(p.properties ->> 'holeid_point', 1) = '{'
+                THEN p.properties ->> 'holeid_point'
+            END AS holeid,
+            COALESCE(NULLIF(p.properties ->> 'sample_name', ''), p.name) AS sample,
+            COALESCE(p.observed_at, d.temporal_start) AS t,
+            $colorExpr AS v $from
+            ORDER BY p.id
+            LIMIT $limit",
+            $params + $colorParams,
+            $types
         );
-        return array_map(fn ($r) => [
-            'id' => (int) $r['id'],
-            'lat' => (float) $r['latitude'],
-            'lon' => (float) $r['longitude'],
-            'elev' => $r['elevation'] !== null ? (float) $r['elevation'] : null,
-            'name' => $r['name'],
-            'date' => $this->iso($r['t']),
-            'dataset' => $r['uuid'],
-            'title' => $r['title'],
-            'status' => $r['status'],
-            'v' => $r['v'],
-        ], $rows);
+
+        return array_map(function ($r) {
+            $hole = !empty($r['holeid'])? json_decode($r['holeid'], true) : null;
+            return [
+                'id' => (int) $r['id'],
+                'lat' => isset($hole['HOLEID_LATITUDE'])
+                    ? (float) $hole['HOLEID_LATITUDE']
+                    : (float) $r['latitude'],
+                'lon' => isset($hole['HOLEID_LONGITUDE'])
+                    ? (float) $hole['HOLEID_LONGITUDE']
+                    : (float) $r['longitude'],
+                'elev' => $r['elevation'] !== null
+                    ? (float) $r['elevation']
+                    : null,
+                'name' => $r['name'],
+                'date' => $this->iso($r['t']),
+                'dataset' => $r['uuid'],
+                'title' => $r['title'],
+                'status' => $r['status'],
+                'v' => $r['v'],
+                'loc' => $r['loc'],
+                'sample' => $r['sample'],
+            ];
+        }, $rows);
     }
 
     /** Valeur servant à colorer les points (map.colorBy du site). */
