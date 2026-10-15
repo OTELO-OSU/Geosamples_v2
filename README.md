@@ -76,20 +76,20 @@ Ajouter un site de valorisation :
 Depuis les fichiers bson:
 ```
 docker exec -e APP_ENV=prod -w /var/www/backend geosamples-php php bin/console app:site:create \
-acev athabasca gitology mobised moris next next-dev nometal orne scandium \
+acev athabasca gitology moris nometal orne scandium \
 petrophysics-allemagne petrophysics-ardeche petrophysics-fosserhenan \
 petrophysics-guadeloupe petrophysics-limagne petrophysics-pyrenees \
 petrophysics-soultz petrophysics-vosges
 ```
 
 Dry run: 
-```
+```sh
 PHP_CONTAINER=geosamples-php PHP_WORKDIR=/var/www/backend ONLY=nometal ./migrate_all.sh ./ORDAR/*
 ```
 
 Vrai import: 
-``` 
-RUN=1 PHP_CONTAINER=geosamples-php PHP_WORKDIR=/var/www/backend ONLY=nometal ./migrate_all.sh ./ORDAR/
+``` sh
+RUN=1 PHP_CONTAINER=geosamples-php PHP_WORKDIR=/var/www/backend ./migrate_all.sh ./ORDAR/
 ```
 Import avec mongoexport:
 

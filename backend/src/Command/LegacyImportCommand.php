@@ -144,6 +144,10 @@ final class LegacyImportCommand extends Command
                     $d = new Dataset($site, null);
                     $issues = $this->writer->apply($d, $payload, true);
 
+                    // Keep source metadata even when it is not defined as a configurable Site field.
+                    $this->preservePayloadProperties($d, $payload);
+                    $this->preservePointHoleKeys($d, $payload);
+
                     if (!$dry) {
                         $d->setStatus($status);
                         $em = $this->em();
@@ -231,6 +235,23 @@ final class LegacyImportCommand extends Command
         return $errors ? Command::FAILURE : Command::SUCCESS;
     }
 
+    private function isStructured(mixed $raw): bool
+    {
+        if (!\is_array($raw)) {
+            return false;
+        }
+        foreach ($raw as $x) {
+            if (\is_array($x)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    private function unwrap(mixed $raw): mixed
+    {
+        return (\is_array($raw) && \count($raw) === 1 && array_is_list($raw) && \is_array($raw[0])) ? $raw[0] : $raw;
+    }
+
     // --------------------------------------------------------------------------------------
     // Doctrine : le gestionnaire est repris à chaque fois (il est fermé après une erreur SQL)
     // --------------------------------------------------------------------------------------
@@ -266,24 +287,52 @@ final class LegacyImportCommand extends Command
     }
 
     /**
-     * Dernier filet : si un jeu ne peut pas être écrit, on crée un jeu minimal (titre, sans point)
-     * qui contient le document d'origine dans reviewComment, pour ne rien perdre.
-     */
+    * Dernier filet : si le mapping normal échoue, crée un jeu minimal et conserve les sections
+    * récupérables dans properties, sans recopier le document V1 complet dans reviewComment.
+    */
+
     private function persistFallback(Site $site, array $chunk, string $reason, string $status): mixed
     {
         $d = new Dataset($site, null);
-        $this->writer->apply($d, ['title' => (string) ($chunk[0]['INTRO']['TITLE'] ?? ''), 'points' => []], true);
+        $d->setTitle((string) ($chunk[0]['INTRO']['TITLE'] ?? ''));
         $d->setStatus($status);
-        $d->setReviewComment(mb_substr(
-            "Échec de la reprise automatique : $reason\n\nDocument d'origine :\n"
-            . json_encode($chunk[0], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
-            0,
-            20000
-        ));
+        $d->setReviewComment(mb_substr("Échec de la reprise automatique : $reason", 0, 20000));
+
+        // Preserve recoverable sections, but never embed the complete V1 document in reviewComment.
+        $properties = ['source_document_ids' => [], 'source_samples' => [], 'source_files' => []];
+        foreach ($chunk as $sourceDoc) {
+            $sourceId = (string) ($sourceDoc['_id'] ?? '');
+            if ($sourceId !== '') {
+                $properties['source_document_ids'][] = $sourceId;
+            }
+            $data = is_array($sourceDoc['DATA'] ?? null) ? $sourceDoc['DATA'] : [];
+            if (array_key_exists('SAMPLES', $data)) {
+                $properties['source_samples'][] = ['source_id' => $sourceId, 'samples' => $data['SAMPLES']];
+            }
+            if (array_key_exists('FILES', $data)) {
+                $properties['source_files'][] = ['source_id' => $sourceId, 'files' => $data['FILES']];
+            }
+            foreach ($data as $key => $value) {
+                if (!in_array($key, ['SAMPLES', 'FILES'], true)) {
+                    $properties['source_data_' . $this->key((string) $key)][] = ['source_id' => $sourceId, 'value' => $value];
+                }
+            }
+            $intro = is_array($sourceDoc['INTRO'] ?? null) ? $sourceDoc['INTRO'] : [];
+            foreach ($intro as $key => $value) {
+                $properties['source_intro_' . $this->key((string) $key)][] = ['source_id' => $sourceId, 'value' => $value];
+            }
+            foreach ($sourceDoc as $rootKey => $rootValue) {
+                if (!in_array($rootKey, ['_id', '_source', 'INTRO', 'DATA'], true) && $rootValue !== null && $rootValue !== '' && $rootValue !== []) {
+                    $properties['source_root_' . $this->key((string) $rootKey)][] = ['source_id' => $sourceId, 'value' => $rootValue];
+                }
+            }
+        }
+        $d->setProperties($properties);
+
         $em = $this->em();
         $em->persist($d);
         $em->flush();
-        return method_exists($d, 'getId') ? $d->getId() : null;
+        return $d->getId();
     }
 
     // --------------------------------------------------------------------------------------
@@ -297,22 +346,35 @@ final class LegacyImportCommand extends Command
         $attached = [];
         foreach ($chunk as $m) {
             foreach ((array) ($m['DATA']['FILES'] ?? []) as $f) {
-                $url = \is_array($f) ? (string) ($f['DATA_URL'] ?? '') : '';
-                $name = basename($url);
+                $url = \is_array($f)
+                    ? (string) ($f['DATA_URL'] ?? $f['URL'] ?? $f['FILE_URL'] ?? $f['NAME'] ?? $f['FILENAME'] ?? '')
+                    : (string) $f;
+                $name = rawurldecode(basename((string) parse_url($url, PHP_URL_PATH) ?: $url));
                 if ($name === '' || isset($attached[$name])) {
                     continue;
                 }
                 $attached[$name] = true;
-                if (!isset($fileIndex[$name])) {
-                    if ($fileIndex) {
-                        $issues["files.$name"] = ['kind' => 'missing', 'message' => "Fichier « $name » introuvable dans --files-dir", 'original' => $url];
-                    }
+                if (!$fileIndex) {
+                    $issues["files.$name"] = ['kind' => 'missing', 'message' => "Fichier « $name » non attaché : --files-dir non fourni", 'original' => $url];
                     continue;
                 }
+                $path = $fileIndex[$name] ?? $fileIndex[mb_strtolower($name)] ?? null;
+                if (!$path) {
+                    $issues["files.$name"] = ['kind' => 'missing', 'message' => "Fichier « $name » introuvable dans --files-dir", 'original' => $url];
+                    continue;
+                }
+                $tmp = sys_get_temp_dir() . '/' . uniqid('imp_', true) . '_' . $name;
                 try {
-                    $this->storage->store($d, new UploadedFile($fileIndex[$name], $name, null, null, true));
+                    if (!copy($path, $tmp)) {
+                        throw new \RuntimeException('copie impossible');
+                    }
+                    $this->storage->store($d, new UploadedFile($tmp, $name, null, null, true));
                 } catch (\Throwable $e) {
                     $issues["files.$name"] = ['kind' => 'failed', 'message' => "Fichier « $name » non attaché : " . $e->getMessage(), 'original' => $url];
+                } finally {
+                    if (is_file($tmp)) {
+                        @unlink($tmp);
+                    }
                 }
             }
         }
@@ -349,8 +411,8 @@ final class LegacyImportCommand extends Command
         }
         foreach ($payload['_unmapped'] ?? [] as $u) {
             $list[] = [
-                'SUPPLEMENTARY_FIELDS.' . $u['key'], $u['doc'], '', 'dropped',
-                'Champ absent du schéma du site, valeur non reprise (utiliser --create-fields)', $u['value'],
+                'SUPPLEMENTARY_FIELDS.' . $u['key'], $u['doc'], '', 'adjusted',
+                'Champ conservé dans les propriétés JSONB du jeu ; --create-fields permet aussi de le rendre configurable', $u['value'],
             ];
         }
         return $list;
@@ -422,7 +484,7 @@ final class LegacyImportCommand extends Command
     /**
      * Regroupe les documents de même titre + description + auteurs (ordre d'apparition conservé).
      * Un document sans titre reste seul.
-     * @return list<list<array>>
+     * @return array<int, array<int, array<string, mixed>>>
      */
     private function groupDocs(array $docs, bool $group): array
     {
@@ -453,7 +515,7 @@ final class LegacyImportCommand extends Command
     /**
      * Découpe un groupe en jeux de DatasetWriter::MAX_POINTS points maximum
      * (on compte les points, pas les documents : un document peut en contenir plusieurs).
-     * @return list<list<array>>
+     * @return array<int, array<int, array<string, mixed>>>
      */
     private function chunkMembers(array $members): array
     {
@@ -502,6 +564,7 @@ final class LegacyImportCommand extends Command
             foreach ($p['_unmapped'] as $u) {
                 $payload['_unmapped'][] = $u;
             }
+            $this->mergePreservedProperties($payload['properties'], $p['properties']);
             $payload['description'] ??= $p['description'];
         }
         $payload['keywords'] = array_values(array_unique($keywords));
@@ -547,31 +610,107 @@ final class LegacyImportCommand extends Command
             }
             $name = $this->authorName($c);
             if ($name !== '') {
-                $authors[] = ['name' => $name];
+                $author = ['name' => $name];
+                $affiliation = $c['AFFILIATION'] ?? $c['INSTITUTION'] ?? null;
+                $orcid = $c['ORCID'] ?? null;
+                if (is_scalar($affiliation) && trim((string) $affiliation) !== '') {
+                    $author['affiliation'] = trim((string) $affiliation);
+                }
+                if (is_scalar($orcid) && trim((string) $orcid) !== '') {
+                    $author['orcid'] = trim((string) $orcid);
+                }
+                $authors[] = $author;
             }
         }
 
         // Champs supplémentaires : niveau jeu ou niveau point selon la définition du champ.
         $props = [];
         $pointProps = [];
-        foreach ((array) ($in['SUPPLEMENTARY_FIELDS'] ?? []) as $k => $v) {
-            $v = $this->scalarize($v);
+
+        // Keep identifiers and source sections that have no dedicated V2 entity/column.
+        // This stores individual metadata sections, not a copy of the complete V1 document.
+        $props['source_document_ids'] = $docId !== '' ? [$docId] : [];
+        $data = is_array($doc['DATA'] ?? null) ? $doc['DATA'] : [];
+        if (array_key_exists('SAMPLES', $data)) {
+            $props['source_samples'] = [['source_id' => $docId, 'samples' => $data['SAMPLES']]];
+        }
+        if (array_key_exists('FILES', $data)) {
+            // Keep original file descriptors/URLs even if --files-dir is not supplied.
+            $props['source_files'] = [['source_id' => $docId, 'files' => $data['FILES']]];
+        }
+        foreach ($data as $dataKey => $dataValue) {
+            if (!in_array($dataKey, ['SAMPLES', 'FILES'], true)) {
+                $props['source_data_' . $this->key((string) $dataKey)] = [['source_id' => $docId, 'value' => $dataValue]];
+            }
+        }
+
+        // Preserve root-level export metadata without storing the complete source document.
+        foreach ($doc as $rootKey => $rootValue) {
+            if (in_array($rootKey, ['_id', '_source', 'INTRO', 'DATA'], true) || $rootValue === null || $rootValue === '' || $rootValue === []) {
+                continue;
+            }
+            $props['source_root_' . $this->key((string) $rootKey)] = $rootValue;
+        }
+
+        $sf = (array) ($in['SUPPLEMENTARY_FIELDS'] ?? []);
+        if (array_key_exists('SUPPLEMENTARY_FIELDS', $in)) {
+            $props['source_supplementary_fields'] = [['source_id' => $docId, 'fields' => $sf]];
+        }
+
+        foreach ($sf as $k => $raw) {
+
+            $v = $this->scalarize($raw);
+
             if ($v === null || $v === '') {
                 continue;
             }
             $key = $this->key((string) $k);
+            $structured = $this->isStructured($raw) ? $this->unwrap($raw) : null;
+
             if (!isset($fields[$key])) {
                 $unmapped[] = ['key' => (string) $k, 'doc' => $docId, 'value' => (string) $v];
+                $props[$key] = \is_array($raw) ? $this->unwrap($raw) : $v;
                 continue;
             }
             if (($fields[$key]['scope'] ?? 'dataset') === 'point') {
                 $pointProps[$key] = $v;
             } else {
-                $props[$key] = $v;
+                $props[$key] = $v;                      // still passes through the writer validation
+                if ($structured !== null) {
+                    $structuredProps[$key] = $structured; // restored after the writer
+                }
             }
         }
-        $measurements = array_filter((array) ($in['MEASUREMENT'] ?? []), 'is_array');
+
+        // Per-sample values go on the point, so each ladder entry keeps its own
+        $hole = $first($sf['HOLEID_POINT'] ?? null);
+        if (\is_array($hole)) {
+            $holeId = trim((string) ($hole['HOLEID'] ?? ''));
+            if ($holeId !== '') {
+                $pointProps['hole_id'] = $holeId;               // string, never numeric
+            }
+            foreach (['HOLEID_LATITUDE' => 'hole_latitude', 'HOLEID_LONGITUDE' => 'hole_longitude', 'HOLEID_ELEVATION' => 'hole_elevation'] as $src => $dst) {
+                if (isset($hole[$src]) && $hole[$src] !== '') {
+                    $pointProps[$dst] = $this->num($hole[$src]) ?? $hole[$src];
+                }
+            }
+        }
+
+        foreach (['SAMPLE_NAME' => 'sample_name', 'SAMPLE_DEPTH_FROM' => 'sample_depth_from', 'SAMPLE_DEPTH_TO' => 'sample_depth_to'] as $src => $dst) {
+
+            if (isset($sf[$src]) && $sf[$src] !== '') {
+
+                $pointProps[$dst] = $this->num($sf[$src]) ?? $sf[$src];
+
+            }
+
+        }
+
+        $measurements = array_values(array_filter((array) ($in['MEASUREMENT'] ?? []), 'is_array'));
+
         if ($measurements) {
+            $props['source_measurements'] = [['source_id' => $docId, 'measurements' => $measurements]];
+
             if (isset($fields['measurements'])) {
                 $m = implode(' ; ', array_map(static fn ($m) => trim(($m['ABBREVIATION'] ?? '') . ' ' . (isset($m['NATURE']) ? "({$m['NATURE']}, " . ($m['UNIT'] ?? '') . ')' : '')), $measurements));
                 if (($fields['measurements']['scope'] ?? 'dataset') === 'point') {
@@ -585,6 +724,13 @@ final class LegacyImportCommand extends Command
         }
 
         $date = $first($in['SAMPLING_DATE'] ?? null);
+        if (array_key_exists('SAMPLING_DATE', $in)) {
+            $props['source_sampling_dates'] = [['source_id' => $docId, 'value' => $in['SAMPLING_DATE']]];
+        }
+        if (array_key_exists('SAMPLING_POINT', $in)) {
+            $props['source_sampling_points'] = [['source_id' => $docId, 'points' => $in['SAMPLING_POINT']]];
+        }
+
         $points = [];
         foreach ((array) ($in['SAMPLING_POINT'] ?? []) as $p) {
             if (!\is_array($p)) {
@@ -601,13 +747,21 @@ final class LegacyImportCommand extends Command
                 [$lon, $lat] = self::lambert93ToWgs84($lon, $lat);
             }
             $rawElev = $p['ELEVATION'] ?? $p['ELEVATION_M'] ?? null;
+            $thisPointProps = $pointProps;
+            $knownPointKeys = ['NAME', 'ABBREVIATION', 'LONGITUDE', 'LATITUDE', 'ELEVATION', 'ELEVATION_M', 'COORDINATE_SYSTEM'];
+            foreach ($p as $pointKey => $pointValue) {
+                if (!in_array($pointKey, $knownPointKeys, true) && $pointValue !== null && $pointValue !== '') {
+                    $thisPointProps['source_point_' . $this->key((string) $pointKey)] = $pointValue;
+                }
+            }
+
             $points[] = [
                 'name' => $p['NAME'] ?? $p['ABBREVIATION'] ?? null,
                 // valeur d'origine conservée si elle n'est pas numérique (le writer la signale)
                 'longitude' => $lon ?? $rawLon, 'latitude' => $lat ?? $rawLat,
                 'elevation' => $this->num($rawElev) ?? $rawElev,
                 'observedAt' => $date,
-                'properties' => $pointProps,
+                'properties' => $thisPointProps,
                 '_src' => $docId,
                 '_crs' => $p['COORDINATE_SYSTEM'] ?? null,
             ] + $src;
@@ -628,6 +782,22 @@ final class LegacyImportCommand extends Command
             ? null
             : (preg_match('/open/i', (string) $ar) ? 'open' : 'restricted');
 
+        // Every other INTRO key is kept in the dataset properties
+        $handled = ['TITLE', 'DATA_DESCRIPTION', 'KEYWORDS', 'KEYWORD', 'FILE_CREATOR', 'SUPPLEMENTARY_FIELDS',
+                    'MEASUREMENT', 'SAMPLING_DATE', 'SAMPLING_POINT', 'LANGUAGE', 'ACCESS_RIGHT', 'LICENSE', 'DATA'];
+        foreach ($in as $k => $raw) {
+            if (\in_array($k, $handled, true) || $raw === null || $raw === '' || $raw === []) {
+                continue;
+            }
+            $key = $this->key((string) $k);
+            if (!isset($props[$key])) {
+                $props[$key] = $raw; // upload_date, creation_date, metadata_date, institution, scientific_field, methodology…
+            } else {
+                // Avoid silently discarding a source value when a normalized key already exists.
+                $this->mergePreservedProperties($props, [$key => $raw]);
+            }
+        }
+
         return [
             'title' => (string) ($in['TITLE'] ?? ''),
             'description' => $in['DATA_DESCRIPTION'] ?? null,
@@ -640,7 +810,59 @@ final class LegacyImportCommand extends Command
             'properties' => $props,
             'points' => $points,
             '_unmapped' => $unmapped,
+
         ];
+
+    }
+
+    private function preservePointHoleKeys(Dataset $d, array $payload): void
+    {
+        $entities = array_values($d->getPoints()->toArray());
+        $i = 0;
+        foreach ($payload['points'] as $pt) {
+            $keys = array_intersect_key(
+                (array) ($pt['properties'] ?? []),
+                array_flip(['hole_id', 'hole_latitude', 'hole_longitude', 'hole_elevation'])
+            );
+            $entity = $entities[$i++] ?? null;
+            if ($entity && $keys) {
+                $entity->setProperties(array_merge($entity->getProperties(), $keys));
+            }
+        }
+    }
+
+
+    /** Merge JSONB metadata without overwriting differing values from grouped source documents. */
+    private function mergePreservedProperties(array &$target, array $incoming): void
+    {
+        foreach ($incoming as $key => $value) {
+            if (!array_key_exists($key, $target)) {
+                $target[$key] = $value;
+                continue;
+            }
+            if ($target[$key] === $value) {
+                continue;
+            }
+            $left = is_array($target[$key]) && array_is_list($target[$key]) ? $target[$key] : [$target[$key]];
+            $right = is_array($value) && array_is_list($value) ? $value : [$value];
+            foreach ($right as $candidate) {
+                if (!in_array($candidate, $left, true)) {
+                    $left[] = $candidate;
+                }
+            }
+            $target[$key] = $left;
+        }
+    }
+
+    /** Re-apply JSONB properties after DatasetWriter so unknown keys are not schema-filtered. */
+    private function preservePayloadProperties(Dataset $dataset, array $payload): void
+    {
+        $datasetProperties = $dataset->getProperties();
+        $this->mergePreservedProperties($datasetProperties, (array) ($payload['properties'] ?? []));
+        foreach ((array) ($payload['_structured'] ?? []) as $key => $value) {
+            $datasetProperties[$key] = $value;   // real array/object, not a JSON string
+        }
+        $dataset->setProperties($datasetProperties);
     }
 
     /**
@@ -733,6 +955,7 @@ final class LegacyImportCommand extends Command
         $idx = [];
         foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS)) as $f) {
             $idx[$f->getFilename()] ??= $f->getPathname();
+            $idx[mb_strtolower($f->getFilename())] ??= $f->getPathname();
         }
         return $idx;
     }
