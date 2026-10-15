@@ -54,7 +54,6 @@ services:
   mailer:
     image: axllent/mailpit:latest
     container_name: geosamples-mail
-    profiles: [dev]
     ports: ['127.0.0.1:8025:8025']
     networks: [geosamples]
 
