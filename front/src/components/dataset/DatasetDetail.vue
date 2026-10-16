@@ -42,6 +42,25 @@
           <dt>Accès aux fichiers</dt><dd>{{ ds.accessRight === 'open' ? 'Ouvert' : 'Réservé aux membres du projet' }}</dd>
           <template v-if="ds.language"><dt>Langue</dt><dd>{{ ds.language === 'fr' ? 'Français' : ds.language === 'en' ? 'Anglais' : ds.language }}</dd></template>
           <dt>Mis à jour</dt><dd>{{ fmtDate(ds.updatedAt) }}</dd>
+          <template v-if="institutions.length">
+            <dt>{{ institutions.length > 1 ? 'Institutions' : 'Institution' }}</dt>
+            <dd>{{ institutions.join(' · ') }}</dd>
+          </template>
+
+          <template v-if="scientificFields.length">
+            <dt>Domaines scientifiques</dt>
+            <dd>
+              <v-chip v-for="s in scientificFields" :key="s" size="small" class="mr-1 mb-1" variant="outlined">{{ s }}</v-chip>
+            </dd>
+          </template>
+
+          <template v-if="referent">
+            <dt>Référent</dt>
+            <dd>
+              {{ referent.name }}
+              <a v-if="referent.mail" :href="`mailto:${referent.mail}`">{{ referent.mail }}</a>
+            </dd>
+          </template>
         </dl>
       </section>
       <section>
@@ -60,6 +79,16 @@
         <p v-else class="text-muted mt-2 text-body-2">{{ ds.points.length }} points · altitude {{ elevRange }}</p>
       </section>
     </div>
+
+    <section v-if="methodologies.length" class="mt-8">
+      <h2 class="gs-h">Méthodologie</h2>
+      <dl class="gs-meta">
+        <template v-for="(m, i) in methodologies" :key="i">
+          <dt>{{ m.name || 'Méthode' }}</dt>
+          <dd>{{ m.description }}</dd>
+        </template>
+      </dl>
+    </section>
 
     <section v-if="ds.points.length > 1" class="mt-8">
       <h2 class="gs-h">Points et mesures</h2>
@@ -120,7 +149,6 @@ const zoom = ref(null)
 const p0 = computed(() => props.ds.points[0] || {})
 const period = computed(() => fmtPeriod(props.ds.temporalStart, props.ds.temporalEnd))
 const authors = computed(() => (props.ds.authors || []).map((a) => a.name + (a.affiliation ? ` (${a.affiliation})` : '')).join(', '))
-const datasetFields = computed(() => props.site.fields.filter((f) => (f.scope || 'dataset') === 'dataset' && props.ds.properties[f.key] !== undefined && props.ds.properties[f.key] !== ''))
 const pointFields = computed(() => props.site.fields.filter((f) => f.scope === 'point'))
 const numericPointFields = computed(() => pointFields.value.filter((f) => ['number', 'integer'].includes(f.type) && props.ds.points.some((p) => p.properties?.[f.key] !== undefined)))
 const chartKey = ref(null)
@@ -151,6 +179,48 @@ const pointRows = computed(() => props.ds.points.map((p) => ({
 const pictures = computed(() => props.ds.files.filter((f) => f.kind === 'picture'))
 const otherFiles = computed(() => props.ds.files.filter((f) => f.kind !== 'picture' || !props.ds.can.download))
 
+const HANDLED_KEYS = ['institution', 'methodology', 'scientific_field', 'referent']
+
+const asArray = (v) => (Array.isArray(v) ? v : v ? [v] : [])
+
+function parseJson(v) {
+  if (v && typeof v === 'object') return v
+  if (typeof v !== 'string') return null
+  try { return JSON.parse(v) } catch { return null }
+}
+
+const institutions = computed(() =>
+  asArray(props.ds.properties?.institution)
+    .map((i) => (typeof i === 'string' ? i : i?.NAME))
+    .filter(Boolean)
+)
+
+const scientificFields = computed(() =>
+  asArray(props.ds.properties?.scientific_field)
+    .map((s) => (typeof s === 'string' ? s : s?.NAME))
+    .filter(Boolean)
+)
+
+const methodologies = computed(() =>
+  asArray(props.ds.properties?.methodology)
+    .map((m) => ({ name: m?.NAME, description: m?.DESCRIPTION }))
+    // drop empty entries and the "N/A" placeholders
+    .filter((m) => m.name && m.name !== 'N/A' || (m.description && m.description !== 'N/A'))
+)
+
+const referent = computed(() => {
+  const r = parseJson(props.ds.properties?.referent)
+  if (!r) return null
+  const name = [r.REFERENT_FIRST_NAME, r.REFERENT_NAME].filter(Boolean).join(' ')
+  const mail = r.REFERENT_MAIL || null
+  return name || mail ? { name, mail } : null
+})
+
+const datasetFields = computed(() => props.site.fields.filter((f) =>
+  (f.scope || 'dataset') === 'dataset'
+  && !HANDLED_KEYS.includes(f.key)
+  && props.ds.properties[f.key] !== undefined
+  && props.ds.properties[f.key] !== ''))
 
 function filenameFromHeaders(headers, fallback) {
   const cd = headers['content-disposition'] || ''
