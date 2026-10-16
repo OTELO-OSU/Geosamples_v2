@@ -84,12 +84,12 @@ petrophysics-soultz petrophysics-vosges
 
 Dry run: 
 ```sh
-PHP_CONTAINER=geosamples-php PHP_WORKDIR=/var/www/backend ONLY=nometal ./migrate_all.sh ./ORDAR/*
+PHP_CONTAINER=geosamples-php FILES_DIR=/var/www/backend/var/uploads PHP_WORKDIR=/var/www/backend ONLY=nometal ./migrate_all.sh ./ORDAR/*
 ```
 
 Vrai import: 
 ``` sh
-RUN=1 PHP_CONTAINER=geosamples-php PHP_WORKDIR=/var/www/backend ./migrate_all.sh ./ORDAR/
+RUN=1 PHP_CONTAINER=geosamples-php FILES_DIR=/var/www/backend/var/uploads PHP_WORKDIR=/var/www/backend ./migrate_all.sh ./ORDAR/
 ```
 Import avec mongoexport:
 
