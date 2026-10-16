@@ -203,9 +203,11 @@ const scientificFields = computed(() =>
 
 const methodologies = computed(() =>
   asArray(props.ds.properties?.methodology)
-    .map((m) => ({ name: m?.NAME, description: m?.DESCRIPTION }))
-    // drop empty entries and the "N/A" placeholders
-    .filter((m) => m.name && m.name !== 'N/A' || (m.description && m.description !== 'N/A'))
+    .map((m) => ({
+      name: m?.NAME?.replace(/^METHODOLOGY_/, '').charAt(0) + m?.NAME?.replace(/^METHODOLOGY_/, '').slice(1).toLowerCase(),
+      description: m?.DESCRIPTION,
+    }))
+    .filter((m) => m.description && !['N/A', '-'].includes(m.description.trim()))
 )
 
 const referent = computed(() => {
