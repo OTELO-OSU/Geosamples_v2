@@ -10,6 +10,7 @@ function el(tag, attrs = {}, parent) {
 const has = (v) => v !== null && v !== undefined && v !== '' && Number.isFinite(+v)
 
 const COLW = 160
+const RAIL_GAP = 60 // min distance between the vertical rail and the first point
 
 export function buildLadder(observations, { onSelect, fmtDate, fmtElevation, selectedPoint }) {
   const obs = observations.map((o) => {
@@ -52,14 +53,15 @@ export function buildLadder(observations, { onSelect, fmtDate, fmtElevation, sel
   // Compute SVG size and coordinates
   const iw = hasX ? (totalCols - 1) * COLW : 0 // width of the inner area (between left and right margins)
   const ih = hasZ ? (levels.length - 1) * ROWH : 0 // height of the inner area (between top and bottom margins)
+  const gap = hasZ ? RAIL_GAP : 0          // only needed when a rail is drawn
   const L = hasZ ? 200 : 60 // left margin for altitude labels
   const R = 60 // right margin for text labels
   const T = hasX ? 70 : 24 // top margin for date labels
   const B = hasX ? 80 : 20 // bottom margin for date labels
-  const W = Math.max(L + iw + R, hasX ? 140 : L + 30 + maxText * 6.5) // total width of the SVG
+  const W = Math.max(L + gap + iw + R, hasX ? 140 : L + gap + 30 + maxText * 6.5) // total width of the SVG
   const H = T + ih + B // total height of the SVG
 
-  const x = (o) => L + o.col * COLW
+  const x = (o) => L + gap + o.col * COLW
   const y = (o) => T + (hasZ ? levels.indexOf(o.z) * ROWH : 0)
 
   const scroll = document.createElement('div')
