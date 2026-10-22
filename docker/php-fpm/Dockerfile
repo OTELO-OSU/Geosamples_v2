@@ -5,7 +5,7 @@ FROM php:fpm-alpine
 
 RUN apk add --no-cache icu-libs libpq libzip postgresql-client openssl su-exec \
     && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS postgresql-dev icu-dev libzip-dev \
-    && docker-php-ext-install pdo_pgsql intl zip opcache \
+    && docker-php-ext-install pdo_pgsql intl zip \
     && apk del .build-deps \
     && rm -rf /var/cache/apk/* /tmp/*
 
