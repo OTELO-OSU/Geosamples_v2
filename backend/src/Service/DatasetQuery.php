@@ -24,7 +24,7 @@ final class DatasetQuery
     public const MAX_POINTS = 20000;
 
     private const HOLE_ID_PATH = "COALESCE(
-        NULLIF(trim(p.properties ->> 'hole_id'), ''),
+        NULLIF(trim(p.properties ->> 'holeid_point'), ''),
         NULLIF(trim(CASE WHEN left(p.properties ->> 'holeid_point', 1) = '{'
                         THEN (p.properties ->> 'holeid_point')::jsonb ->> 'HOLEID' END), ''),
         NULLIF(trim(p.properties #>> '{holeid_point,HOLEID}'), '')
@@ -443,6 +443,7 @@ final class DatasetQuery
         [$colorExpr, $colorParams] = $this->colorExpr($site);
         $rows = $this->db->fetchAllAssociative(
             "SELECT p.id, p.longitude, p.latitude, p.elevation, p.name, d.uuid, d.title, d.status, " . self::HOLE . " AS loc,
+            " . self::HOLE_ID_PATH . " AS hole_id,
             CASE
                 WHEN left(p.properties ->> 'holeid_point', 1) = '{'
                 THEN p.properties ->> 'holeid_point'
@@ -476,6 +477,7 @@ final class DatasetQuery
                 'status' => $r['status'],
                 'v' => $r['v'],
                 'loc' => $r['loc'],
+                'hole_id' => $r['hole_id'],
                 'sample' => $r['sample'],
             ];
         }, $rows);

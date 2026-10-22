@@ -74,12 +74,18 @@ final class DatasetController extends ApiController
                 $lat = (float) $point['lat'];
                 $lon = (float) $point['lon'];
                 $key = (string) ($point['loc'] ?? sprintf('c:%.5F/%.5F', $lat, $lon));
-                if (!isset($groups[$key])) {
-                    $groups[$key] = [
-                        'lat' => $lat, 'lon' => $lon, 'count' => 0,
-                        'datasets' => [], 'observations' => [],
-                        'v' => $point['v'] ?? null,
-                    ];
+               if (!isset($groups[$key])) {
+                $groups[$key] = [
+                    'hole_id' => $point['hole_id'] ?? null,
+                    'lat' => $lat, 'lon' => $lon, 'count' => 0,
+                    'datasets' => [], 'observations' => [],
+                    'v' => $point['v'] ?? null,
+                ];
+                }
+                $groups[$key]['count']++;
+                $datasetId = (string) ($point['dataset'] ?? '');
+                if ($datasetId !== '') {
+                    $groups[$key]['datasets'][$datasetId] = $point['title'] ?? $datasetId;
                 }
                 $groups[$key]['count']++;
                 $datasetId = (string) ($point['dataset'] ?? '');
