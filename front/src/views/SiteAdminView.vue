@@ -34,9 +34,6 @@
         </template>
 
         <template v-if="tab === 'map'">
-          <p class="text-muted mb-3">Déplacez la carte pour définir la vue affichée à l'ouverture du site.</p>
-          <div ref="viewEl" class="gs-viewmap" />
-          <p class="text-body-2 mt-2">Centre {{ cfg.map.center.map((v) => v.toFixed(4)).join(', ') }} · zoom {{ cfg.map.zoom }}</p>
           <h3 class="mt-6 mb-2">Fonds de carte proposés</h3>
           <div class="d-flex flex-wrap ga-x-6">
             <v-checkbox v-for="(b, k) in BASEMAPS" :key="k" v-model="cfg.map.basemaps" :value="k" :label="b.label" hide-details density="compact" />
@@ -102,8 +99,6 @@ const site = computed(() => siteStore.site)
 const tab = ref('presentation')
 const saving = ref(false)
 const errors = ref({})
-const viewEl = ref(null)
-let viewMap = null
 
 const clone = (s) => JSON.parse(JSON.stringify({
   title: s.title, subtitle: s.subtitle || '', description: s.description || '', about: s.about || '',
@@ -117,23 +112,6 @@ const colorItems = computed(() => [
   { value: 'none', title: 'Couleur unique' }, { value: 'elevation', title: 'Altitude' }, { value: 'year', title: 'Année' },
   ...cfg.value.fields.filter((f) => ['select', 'number', 'integer', 'boolean'].includes(f.type)).map((f) => ({ value: f.key, title: f.label })),
 ])
-
-watch(tab, async (t) => {
-  viewMap?.remove()
-  viewMap = null
-  if (t !== 'map') return
-  await nextTick()
-  viewMap = L.map(viewEl.value)
-  const b = BASEMAPS[cfg.value.map.defaultBasemap] || BASEMAPS.osm
-  L.tileLayer(b.url, { attribution: b.attribution, maxZoom: b.maxZoom, subdomains: 'abc' }).addTo(viewMap)
-  viewMap.setView(cfg.value.map.center, cfg.value.map.zoom)
-  viewMap.on('moveend', () => {
-    const c = viewMap.getCenter()
-    cfg.value.map.center = [+c.lat.toFixed(5), +c.lng.toFixed(5)]
-    cfg.value.map.zoom = viewMap.getZoom()
-  })
-})
-onBeforeUnmount(() => viewMap?.remove())
 
 async function save() {
   saving.value = true
@@ -172,7 +150,6 @@ async function uploadLogo(f) {
 .gs-admin__body { min-width: 0; }
 .gs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
 .gs-span-2 { grid-column: span 2; }
-.gs-viewmap { height: 360px; border-radius: 8px; border: 1px solid rgb(var(--v-theme-line)); z-index: 0; }
 .gs-color { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem; }
 .gs-color input { width: 44px; height: 44px; border: 1px solid rgb(var(--v-theme-line)); border-radius: 8px; padding: 2px; background: none; cursor: pointer; }
 .gs-bar { position: sticky; bottom: 0; display: flex; padding: 12px 0; margin-top: 24px; background: rgb(var(--v-theme-background)); border-top: 1px solid rgb(var(--v-theme-line)); }
