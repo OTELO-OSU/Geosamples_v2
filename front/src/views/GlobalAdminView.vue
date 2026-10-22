@@ -65,6 +65,17 @@
         </v-card>
       </v-dialog>
     </template>
+
+  <v-dialog v-model="forceDialog" max-width="480">
+    <v-card title="Supprimer le site">
+      <v-card-text>{{ forceMessage }}</v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="forceDialog = false">Non</v-btn>
+        <v-btn color="error" variant="flat" :loading="busy" @click="confirmForce">Oui</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
   </div>
 </template>
 
@@ -86,6 +97,9 @@ const errs = ref({})
 const nsite = ref({ title: '', slug: '', hostnames: '', managerEmail: '' })
 const nuser = ref({ email: '', firstname: '', lastname: '', password: '', admin: false })
 const userDialog = ref(false)
+const forceDialog = ref(false)
+const forceMessage = ref('')
+const siteToDelete = ref(null)
 
 onMounted(loadSites)
 watch(tab, (t) => (t === 'users' ? loadUsers() : loadSites()))
@@ -109,9 +123,32 @@ async function createSite() {
     loadSites()
   } catch (e) { errs.value = errorDetails(e); ui.error(errorMessage(e)) } finally { busy.value = false }
 }
-async function delSite(s) {
-  if (!confirm(`Supprimer le site « ${s.title} » ?`)) return
-  try { await api.delete(`/api/admin/sites/${s.slug}`); ui.notify('Site supprimé'); loadSites() } catch (e) { ui.error(errorMessage(e)) }
+async function delSite(s, force = false) {
+  if (!force && !confirm(`Supprimer le site « ${s.title} » ?`)) return
+  busy.value = true
+  try {
+    // for DELETE, axios needs the body under the `data` key
+    await api.delete(`/api/admin/sites/${s.slug}`, { data: { force } })
+    forceDialog.value = false
+    ui.notify('Site supprimé')
+    loadSites()
+  } catch (e) {
+    if (!force && e.response?.status === 409) {
+      // the site still has datasets: ask for confirmation instead of showing an error
+      siteToDelete.value = s
+      forceMessage.value = errorMessage(e)
+      forceDialog.value = true
+    } else {
+      forceDialog.value = false
+      ui.error(errorMessage(e))
+    }
+  } finally {
+    busy.value = false
+  }
+}
+
+function confirmForce() {
+  return delSite(siteToDelete.value, true)
 }
 async function patchUser(u, data) {
   try { Object.assign(u, (await api.patch(`/api/admin/users/${u.id}`, data)).data); ui.notify('Compte mis à jour') } catch (e) { ui.error(errorMessage(e)) }

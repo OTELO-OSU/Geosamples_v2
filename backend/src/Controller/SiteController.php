@@ -114,13 +114,20 @@ final class SiteController extends ApiController
     }
 
     #[Route('/api/admin/sites/{slug}', methods: ['DELETE'])]
-    public function delete(string $slug): JsonResponse
+    public function delete(string $slug, Request $request): JsonResponse
     {
         $site = $this->sites->bySlug($slug);
-        $n = (int) $this->em->getConnection()->fetchOne('SELECT count(*) FROM dataset WHERE site_id = ?', [$site->getId()]);
+        $conn = $this->em->getConnection();
+        $n = (int) $conn->fetchOne('SELECT count(*) FROM dataset WHERE site_id = ?', [$site->getId()]);
+
         if ($n > 0) {
-            throw new ApiException("Le site contient $n jeu(x) de données : supprimez-les ou dépubliez le site", 409);
+            $force = filter_var($this->body($request)['force'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            if (!$force) {
+                throw new ApiException("Il y a $n jeu(x) de données dans le site. Êtes-vous sûr de vouloir le supprimer ?", 409);
+            }
+            $conn->executeStatement('DELETE FROM dataset WHERE site_id = ?', [$site->getId()]);
         }
+
         $this->em->remove($site);
         $this->em->flush();
         return $this->json(['ok' => true]);
