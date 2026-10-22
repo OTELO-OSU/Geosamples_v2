@@ -1,7 +1,7 @@
 # Backend Symfony (même socle qu'ORDaR v2 : PHP 8.3 FPM Alpine + pdo_pgsql)
 FROM composer:2 AS composer
 
-FROM php:8.3-fpm-alpine
+FROM php:fpm-alpine
 
 RUN apk add --no-cache icu-libs libpq libzip postgresql-client openssl su-exec \
     && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS postgresql-dev icu-dev libzip-dev \
