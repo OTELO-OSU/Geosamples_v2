@@ -79,7 +79,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api, { errorMessage } from '@/api/client'
 import { useSiteStore } from '@/stores/site'
 import { useUiStore } from '@/stores/ui'
-import { emptyFilters, fromQuery, toParams, activeCount } from '@/utils/filters'
+import { fromQuery, toParams, activeCount } from '@/utils/filters'
 import { fmtNumber, fmtPeriod, markdown } from '@/utils/format'
 import { downloadTable } from '@/utils/spreadsheet'
 import SampleMap from '@/components/map/SampleMap.vue'
@@ -244,7 +244,7 @@ async function exportList(format) {
 .gs-mv--preview :deep(.leaflet-right), .gs-mv--preview :deep(.gs-map__legend) { right: min(460px, 100%); }
 @media (min-width: 901px) { .gs-mv--preview :deep(.leaflet-right) { margin-right: 0; } }
 .gs-mv__preview-bar { display: flex; align-items: center; padding: 6px 8px; border-bottom: 1px solid rgb(var(--v-theme-line)); }
-.gs-mv__preview-body { overflow-y: auto; padding: 18px 20px 32px; }
+.gs-mv__preview-body { overflow-y: auto; overflow-x: hidden; min-width: 0; padding: 18px 20px 32px; }
 .gs-slide-enter-active, .gs-slide-leave-active { transition: transform 0.22s ease; }
 .gs-slide-enter-from, .gs-slide-leave-to { transform: translateX(100%); }
 
