@@ -298,34 +298,19 @@ final class LegacyImportCommand extends Command
         $d->setStatus($status);
         $d->setReviewComment(mb_substr("Échec de la reprise automatique : $reason", 0, 20000));
 
-        // Preserve recoverable sections, but never embed the complete V1 document in reviewComment.
-        $properties = ['source_document_ids' => [], 'source_samples' => [], 'source_files' => []];
+        $properties = ['source_document_ids' => []];
         foreach ($chunk as $sourceDoc) {
             $sourceId = (string) ($sourceDoc['_id'] ?? '');
             if ($sourceId !== '') {
                 $properties['source_document_ids'][] = $sourceId;
             }
-            $data = is_array($sourceDoc['DATA'] ?? null) ? $sourceDoc['DATA'] : [];
-            if (array_key_exists('SAMPLES', $data)) {
-                $properties['source_samples'][] = ['source_id' => $sourceId, 'samples' => $data['SAMPLES']];
-            }
-            if (array_key_exists('FILES', $data)) {
-                $properties['source_files'][] = ['source_id' => $sourceId, 'files' => $data['FILES']];
-            }
-            foreach ($data as $key => $value) {
-                if (!in_array($key, ['SAMPLES', 'FILES'], true)) {
-                    $properties['source_data_' . $this->key((string) $key)][] = ['source_id' => $sourceId, 'value' => $value];
-                }
-            }
-            $intro = is_array($sourceDoc['INTRO'] ?? null) ? $sourceDoc['INTRO'] : [];
+            $intro = \is_array($sourceDoc['INTRO'] ?? null) ? $sourceDoc['INTRO'] : [];
             foreach ($intro as $key => $value) {
-                $properties['source_intro_' . $this->key((string) $key)][] = ['source_id' => $sourceId, 'value' => $value];
-            }
-            foreach ($sourceDoc as $rootKey => $rootValue) {
-                if (!in_array($rootKey, ['_id', '_source', 'INTRO', 'DATA'], true) && $rootValue !== null && $rootValue !== '' && $rootValue !== []) {
-                    $properties['source_root_' . $this->key((string) $rootKey)][] = ['source_id' => $sourceId, 'value' => $rootValue];
+                if ($value !== null && $value !== '' && $value !== []) {
+                    $this->mergePreservedProperties($properties, [$this->key((string) $key) => $value]);
                 }
             }
+            $this->preserveSourceData($sourceDoc, $properties, true); // here FILES is kept too
         }
         $d->setProperties($properties);
 
@@ -565,6 +550,7 @@ final class LegacyImportCommand extends Command
                 $payload['_unmapped'][] = $u;
             }
             $this->mergePreservedProperties($payload['properties'], $p['properties']);
+            $this->mergePreservedProperties($payload['_structured'], $p['_structured']);
             $payload['description'] ??= $p['description'];
         }
         $payload['keywords'] = array_values(array_unique($keywords));
@@ -626,36 +612,10 @@ final class LegacyImportCommand extends Command
         // Champs supplémentaires : niveau jeu ou niveau point selon la définition du champ.
         $props = [];
         $pointProps = [];
-
-        // Keep identifiers and source sections that have no dedicated V2 entity/column.
-        // This stores individual metadata sections, not a copy of the complete V1 document.
         $props['source_document_ids'] = $docId !== '' ? [$docId] : [];
-        $data = is_array($doc['DATA'] ?? null) ? $doc['DATA'] : [];
-        if (array_key_exists('SAMPLES', $data)) {
-            $props['source_samples'] = [['source_id' => $docId, 'samples' => $data['SAMPLES']]];
-        }
-        if (array_key_exists('FILES', $data)) {
-            // Keep original file descriptors/URLs even if --files-dir is not supplied.
-            $props['source_files'] = [['source_id' => $docId, 'files' => $data['FILES']]];
-        }
-        foreach ($data as $dataKey => $dataValue) {
-            if (!in_array($dataKey, ['SAMPLES', 'FILES'], true)) {
-                $props['source_data_' . $this->key((string) $dataKey)] = [['source_id' => $docId, 'value' => $dataValue]];
-            }
-        }
-
-        // Preserve root-level export metadata without storing the complete source document.
-        foreach ($doc as $rootKey => $rootValue) {
-            if (in_array($rootKey, ['_id', '_source', 'INTRO', 'DATA'], true) || $rootValue === null || $rootValue === '' || $rootValue === []) {
-                continue;
-            }
-            $props['source_root_' . $this->key((string) $rootKey)] = $rootValue;
-        }
+        $structuredProps = [];
 
         $sf = (array) ($in['SUPPLEMENTARY_FIELDS'] ?? []);
-        if (array_key_exists('SUPPLEMENTARY_FIELDS', $in)) {
-            $props['source_supplementary_fields'] = [['source_id' => $docId, 'fields' => $sf]];
-        }
 
         foreach ($sf as $k => $raw) {
 
@@ -709,9 +669,11 @@ final class LegacyImportCommand extends Command
         $measurements = array_values(array_filter((array) ($in['MEASUREMENT'] ?? []), 'is_array'));
 
         if ($measurements) {
-            $props['source_measurements'] = [['source_id' => $docId, 'measurements' => $measurements]];
+            // Raw structured measurements: always kept, restored after the writer (see _structured)
+            $structuredProps['measurements'] = $measurements;
 
             if (isset($fields['measurements'])) {
+                // Text summary for the configured site field (validated by the writer)
                 $m = implode(' ; ', array_map(static fn ($m) => trim(($m['ABBREVIATION'] ?? '') . ' ' . (isset($m['NATURE']) ? "({$m['NATURE']}, " . ($m['UNIT'] ?? '') . ')' : '')), $measurements));
                 if (($fields['measurements']['scope'] ?? 'dataset') === 'point') {
                     $pointProps['measurements'] = $m;
@@ -724,12 +686,6 @@ final class LegacyImportCommand extends Command
         }
 
         $date = $first($in['SAMPLING_DATE'] ?? null);
-        if (array_key_exists('SAMPLING_DATE', $in)) {
-            $props['source_sampling_dates'] = [['source_id' => $docId, 'value' => $in['SAMPLING_DATE']]];
-        }
-        if (array_key_exists('SAMPLING_POINT', $in)) {
-            $props['source_sampling_points'] = [['source_id' => $docId, 'points' => $in['SAMPLING_POINT']]];
-        }
 
         $points = [];
         foreach ((array) ($in['SAMPLING_POINT'] ?? []) as $p) {
@@ -798,6 +754,8 @@ final class LegacyImportCommand extends Command
             }
         }
 
+        $this->preserveSourceData($doc, $props);
+
         return [
             'title' => (string) ($in['TITLE'] ?? ''),
             'description' => $in['DATA_DESCRIPTION'] ?? null,
@@ -808,6 +766,7 @@ final class LegacyImportCommand extends Command
             'accessRight' => $accessRight,
             'temporalStart' => $date,
             'properties' => $props,
+            '_structured' => $structuredProps,
             'points' => $points,
             '_unmapped' => $unmapped,
 
@@ -828,6 +787,24 @@ final class LegacyImportCommand extends Command
             if ($entity && $keys) {
                 $entity->setProperties(array_merge($entity->getProperties(), $keys));
             }
+        }
+    }
+
+    /** Adds every DATA.* and root-level key of a source document to $props under its own key. */
+    private function preserveSourceData(array $doc, array &$props, bool $withFiles = false): void
+    {
+        $data = \is_array($doc['DATA'] ?? null) ? $doc['DATA'] : [];
+        foreach ($data as $k => $v) {
+            if ($v === null || $v === '' || $v === [] || (!$withFiles && (string) $k === 'FILES')) {
+                continue;
+            }
+            $this->mergePreservedProperties($props, [$this->key((string) $k) => $v]);
+        }
+        foreach ($doc as $k => $v) {
+            if (\in_array($k, ['_id', '_source', 'INTRO', 'DATA'], true) || $v === null || $v === '' || $v === []) {
+                continue;
+            }
+            $this->mergePreservedProperties($props, [$this->key((string) $k) => $v]);
         }
     }
 
