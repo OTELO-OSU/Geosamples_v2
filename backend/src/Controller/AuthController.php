@@ -22,6 +22,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * POST /api/auth/logout                fin de session
  * GET  /api/auth/federation/login      redirection vers le fournisseur OIDC (RENATER via Keycloak)
  * GET  /api/auth/federation/callback   retour OIDC
+ * GET  /api/auth/orcid/login|callback  connexion ORCID
  * GET  /api/auth/shibboleth            connexion par en-têtes mod_shib / CAS
  * GET  /api/me  · PATCH /api/me        profil
  */
@@ -96,6 +97,29 @@ final class AuthController extends ApiController
             $resp = new RedirectResponse('/?' . http_build_query(['auth' => 'error', 'message' => 'Échec de la connexion fédérée']));
         }
         $this->federation->clearStateCookie($resp);
+        return $resp;
+    }
+
+    #[Route('/api/auth/orcid/login', methods: ['GET'])]
+    public function orcidLogin(Request $request): Response
+    {
+        return $this->federation->orcidRedirect($request, (string) $request->query->get('return', '/'));
+    }
+
+    #[Route('/api/auth/orcid/callback', methods: ['GET'])]
+    public function orcidCallback(Request $request): Response
+    {
+        try {
+            [$user, $return] = $this->federation->orcidCallback($request);
+            $resp = new RedirectResponse($this->withQuery($return, ['auth' => 'ok']));
+            $resp->headers->setCookie($this->auth->issueRefreshCookie($user));
+        } catch (ApiException $e) {
+            $resp = new RedirectResponse('/?' . http_build_query(['auth' => 'error', 'message' => $e->getMessage()]));
+        } catch (\Throwable $e) {
+            $this->logger->error('ORCID callback error: ' . $e->getMessage());
+            $resp = new RedirectResponse('/?' . http_build_query(['auth' => 'error', 'message' => 'Échec de la connexion ORCID']));
+        }
+        $this->federation->clearOrcidStateCookie($resp);
         return $resp;
     }
 

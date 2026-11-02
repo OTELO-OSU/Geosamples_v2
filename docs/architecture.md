@@ -21,7 +21,7 @@ Sans site résolu, le front affiche le **portail** (liste des sites, administrat
 | Table | Rôle |
 |---|---|
 | `site` | Configuration complète d'un site : `hostnames`, textes (markdown), `theme`, `map` (centre, zoom, fonds, `colorBy`, `clusterMaxZoom`), `fields` (champs spécifiques), `import_template`, `settings` (modération, valeurs par défaut, contact…), `published`. |
-| `app_user` | Compte ; `federation_id` (eppn ou `sub` OIDC) pour les comptes fédérés, `password` pour les comptes locaux, `ROLE_ADMIN` dans `roles`. |
+| `app_user` | Compte ; `federation_id` (eppn, `sub` OIDC ou identifiant ORCID) pour les comptes fédérés, `password` pour les comptes locaux, `ROLE_ADMIN` dans `roles`. |
 | `site_membership` | Rôle d'un compte sur un site : `responsable` ou `utilisateur`, statut `active` ou `pending` (demande d'adhésion). |
 | `dataset` | Jeu de données : métadonnées communes en colonnes, champs du site en `properties` (JSONB), `temporal_start/end`, `status`, `doi`/`ordar_url` une fois publié dans ORDaR. |
 | `sampling_point` | Point (station, échantillon) : `longitude`, `latitude` (WGS84), `elevation` + `vertical_datum`, `observed_at/observed_end`, saisie d'origine (`src_crs`, `src_x`, `src_y`), mesures par point en `properties` (JSONB). |
@@ -96,7 +96,7 @@ Routes JSON sous `/api` (liste détaillée en tête de chaque contrôleur) :
 - `GET /api/sites/{slug}/map|facets|datasets`, `POST /api/sites/{slug}/datasets`, `GET|PUT|DELETE /api/sites/{slug}/datasets/{uuid}`, `POST …/{uuid}/status`, `POST|DELETE …/{uuid}/files`, `GET /api/files/{id}`
 - `GET /api/sites/{slug}/import/columns`, `POST …/import/preview|commit`, `GET /api/sites/{slug}/export?format=json|csv`
 - `GET|POST|PATCH|DELETE /api/sites/{slug}/members…`, `POST /api/sites/{slug}/join`
-- `POST /api/auth/login|refresh|logout`, `GET /api/auth/federation/login|callback`, `GET /api/auth/shibboleth`, `GET|PATCH /api/me`
+- `POST /api/auth/login|refresh|logout`, `GET /api/auth/federation/login|callback`, `GET /api/auth/orcid/login|callback`, `GET /api/auth/shibboleth`, `GET|PATCH /api/me`
 - `GET|POST|PATCH /api/admin/users…`, `POST|DELETE /api/admin/sites…`
 
 Filtres communs : `q`, `kw`, `from`, `to`, `elevMin`, `elevMax`, `bbox=w,s,e,n`, `f[<clé>]=a,b`,

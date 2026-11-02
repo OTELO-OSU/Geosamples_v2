@@ -6,6 +6,9 @@ parameters:
     app.default_site: '%env(DEFAULT_SITE)%'
     app.federation_mode: '%env(FEDERATION_MODE)%'
     app.mail_from: '%env(MAIL_FROM)%'
+    app.orcid_base_url: 'https://orcid.org'
+    app.orcid_client_id: ''
+    app.orcid_client_secret: ''
 
 services:
     _defaults:
@@ -35,6 +38,9 @@ services:
             $oidcClientId: '%env(OIDC_CLIENT_ID)%'
             $oidcClientSecret: '%env(OIDC_CLIENT_SECRET)%'
             $oidcScopes: '%env(OIDC_SCOPES)%'
+            $orcidBaseUrl: '%env(default:app.orcid_base_url:ORCID_BASE_URL)%'
+            $orcidClientId: '%env(default:app.orcid_client_id:ORCID_CLIENT_ID)%'
+            $orcidClientSecret: '%env(default:app.orcid_client_secret:ORCID_CLIENT_SECRET)%'
             $shibHeaders: '%env(json:SHIB_HEADERS)%'
             $shibSharedSecret: '%env(SHIB_SHARED_SECRET)%'
             $appSecret: '%env(APP_SECRET)%'

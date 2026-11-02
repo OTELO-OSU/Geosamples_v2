@@ -54,6 +54,25 @@ SHIB_HEADERS='{"id":"eppn","email":"mail","firstname":"givenname","lastname":"sn
 SHIB_SHARED_SECRET=…
 ```
 
+## Connexion ORCID
+
+ORCID est disponible en complément du mode de fédération choisi ci-dessus. Le client ORCID doit
+autoriser l'URL de callback `https://<nom d'hôte>/api/auth/orcid/callback` pour chaque hôte servi.
+Configurer les identifiants du client dans `.env` :
+
+```
+ORCID_BASE_URL=https://orcid.org
+ORCID_CLIENT_ID=…
+ORCID_CLIENT_SECRET=…
+```
+
+Pour l'environnement de test ORCID, utiliser `https://sandbox.orcid.org` comme `ORCID_BASE_URL`.
+Le bouton ORCID n'est affiché que lorsque les deux identifiants sont configurés. La première
+connexion crée automatiquement le compte, comme pour OIDC ; l'application a besoin d'une adresse
+e-mail valide et utilise d'abord l'adresse renvoyée par ORCID, puis l'adresse publique du profil
+ORCID. Si aucune adresse n'est disponible, rendez une adresse publique dans ORCID et réessayez.
+L'identifiant ORCID est conservé dans le profil du compte.
+
 ## Comptes locaux
 
 Toujours disponibles (formulaire « Avec un compte local ») pour amorcer l'instance et pour les

@@ -32,6 +32,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 final class FederationService
 {
     private const STATE_COOKIE = 'gs_oidc';
+    private const ORCID_STATE_COOKIE = 'gs_orcid';
 
     public function __construct(
         private string $federationMode,
@@ -39,6 +40,9 @@ final class FederationService
         private string $oidcClientId,
         private string $oidcClientSecret,
         private string $oidcScopes,
+        private string $orcidBaseUrl,
+        private string $orcidClientId,
+        private string $orcidClientSecret,
         private array $shibHeaders,
         private string $shibSharedSecret,
         private string $appSecret,
@@ -62,6 +66,13 @@ final class FederationService
             'shibboleth' => '/api/auth/shibboleth',
             default => null,
         };
+    }
+
+    public function orcidLoginUrl(): ?string
+    {
+        return $this->orcidClientId !== '' && $this->orcidClientSecret !== ''
+            ? '/api/auth/orcid/login'
+            : null;
     }
 
     public static function safeReturn(?string $return): string
@@ -149,6 +160,99 @@ final class FederationService
         $resp->headers->clearCookie(self::STATE_COOKIE, '/api/auth/federation', null, $this->cookieSecure, true, Cookie::SAMESITE_LAX);
     }
 
+    // -------------------------------------------------------------------- ORCID
+    public function orcidRedirect(Request $request, string $return): RedirectResponse
+    {
+        if ($this->orcidLoginUrl() === null) {
+            throw ApiException::notFound();
+        }
+        $nonce = bin2hex(random_bytes(16));
+        $state = $this->sign(['n' => $nonce, 'r' => self::safeReturn($return), 'e' => time() + 600]);
+        $url = rtrim($this->orcidBaseUrl, '/') . '/oauth/authorize?' . http_build_query([
+            'client_id' => $this->orcidClientId,
+            'response_type' => 'code',
+            'scope' => '/authenticate',
+            'redirect_uri' => $this->orcidCallbackUrl($request),
+            'state' => $state,
+        ]);
+        $resp = new RedirectResponse($url);
+        $resp->headers->setCookie(Cookie::create(self::ORCID_STATE_COOKIE, $nonce, time() + 600, '/api/auth/orcid', null, $this->cookieSecure, true, false, Cookie::SAMESITE_LAX));
+        return $resp;
+    }
+
+    /** @return array{0: User, 1: string} [utilisateur, chemin de retour] */
+    public function orcidCallback(Request $request): array
+    {
+        if ($this->orcidLoginUrl() === null) {
+            throw ApiException::notFound();
+        }
+        if ($err = $request->query->get('error')) {
+            throw new ApiException('Connexion refusée par ORCID : ' . $err, 401);
+        }
+        $state = $this->verify((string) $request->query->get('state'));
+        $nonce = (string) $request->cookies->get(self::ORCID_STATE_COOKIE);
+        if (!$state || !hash_equals((string) $state['n'], $nonce) || $state['e'] < time()) {
+            throw new ApiException('Session de connexion invalide ou expirée, veuillez réessayer', 401);
+        }
+
+        $callbackUrl = $this->orcidCallbackUrl($request);
+        $tokenResponse = $this->http->request('POST', rtrim($this->orcidBaseUrl, '/') . '/oauth/token', [
+            'headers' => ['Accept' => 'application/json'],
+            'body' => [
+                'client_id' => $this->orcidClientId,
+                'client_secret' => $this->orcidClientSecret,
+                'grant_type' => 'authorization_code',
+                'code' => (string) $request->query->get('code'),
+                'redirect_uri' => $callbackUrl,
+            ],
+        ]);
+        if ($tokenResponse->getStatusCode() !== 200) {
+            $this->logger->warning('ORCID token exchange failed', ['body' => $tokenResponse->getContent(false)]);
+            throw new ApiException('Échec de l\'échange du code ORCID', 401);
+        }
+        $tokens = $tokenResponse->toArray();
+        $accessToken = (string) ($tokens['access_token'] ?? '');
+        if ($accessToken === '') {
+            throw new ApiException('Réponse ORCID invalide', 401);
+        }
+
+        $userinfoResponse = $this->http->request('GET', rtrim($this->orcidBaseUrl, '/') . '/oauth/userinfo', [
+            'headers' => [
+                'Accept' => 'application/json',
+                'Authorization' => 'Bearer ' . $accessToken,
+            ],
+        ]);
+        if ($userinfoResponse->getStatusCode() !== 200) {
+            $this->logger->warning('ORCID userinfo request failed', ['status' => $userinfoResponse->getStatusCode()]);
+            throw new ApiException('Impossible de récupérer votre profil ORCID', 401);
+        }
+        $claims = $userinfoResponse->toArray();
+        $orcid = self::canonicalOrcid((string) ($claims['sub'] ?? $tokens['orcid'] ?? ''));
+        if ($orcid === '') {
+            throw new ApiException('ORCID n\'a pas transmis un identifiant valide', 401);
+        }
+
+        $email = trim((string) ($claims['email'] ?? ''));
+        if ($email === '') {
+            $email = $this->publicOrcidEmail($orcid);
+        }
+        $user = $this->upsert([
+            'id' => 'orcid:' . $orcid,
+            'orcid' => $orcid,
+            'email' => $email,
+            'firstname' => (string) ($claims['given_name'] ?? ''),
+            'lastname' => (string) ($claims['family_name'] ?? ''),
+            'affiliation' => '',
+            'idp' => 'orcid',
+        ]);
+        return [$user, $state['r']];
+    }
+
+    public function clearOrcidStateCookie(\Symfony\Component\HttpFoundation\Response $resp): void
+    {
+        $resp->headers->clearCookie(self::ORCID_STATE_COOKIE, '/api/auth/orcid', null, $this->cookieSecure, true, Cookie::SAMESITE_LAX);
+    }
+
     // --------------------------------------------------------------- Shibboleth
     public function shibbolethUser(Request $request): User
     {
@@ -176,20 +280,36 @@ final class FederationService
      */
     public function upsert(array $id): User
     {
-        $email = mb_strtolower(trim($id['email']));
-        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw new ApiException('Votre établissement n\'a pas transmis d\'adresse e-mail : connexion impossible', 401);
+        $email = mb_strtolower(trim((string) ($id['email'] ?? '')));
+        $orcid = $id['orcid'] ?? null;
+        $fid = ($id['id'] ?? '') !== '' ? $id['id'] : $email;
+        $user = ($fid !== '' ? $this->users->findOneBy(['federationId' => $fid]) : null)
+            ?? ($orcid ? $this->users->findOneBy(['orcid' => $orcid]) : null)
+            ?? ($email !== '' ? $this->users->findOneByEmail($email) : null);
+
+        if ($email === '' && $user) {
+            $email = $user->getEmail();
         }
-        $fid = $id['id'] !== '' ? $id['id'] : $email;
-        $user = $this->users->findOneBy(['federationId' => $fid]) ?? $this->users->findOneByEmail($email);
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $message = ($id['idp'] ?? '') === 'orcid'
+                ? 'Aucune adresse e-mail valide n\'a été transmise. Rendez votre adresse e-mail publique dans ORCID puis réessayez.'
+                : 'Votre établissement n\'a pas transmis d\'adresse e-mail : connexion impossible';
+            throw new ApiException($message, 401);
+        }
+        if ($user && !$user->isActive()) {
+            throw ApiException::forbidden('Compte désactivé');
+        }
+        if ($orcid && $user?->getOrcid() !== null && $user->getOrcid() !== $orcid) {
+            throw ApiException::forbidden('Un autre identifiant ORCID est déjà associé à ce compte');
+        }
         if (!$user) {
             $user = new User($email);
             $this->em->persist($user);
         }
-        if (!$user->isActive()) {
-            throw ApiException::forbidden('Compte désactivé');
-        }
         $user->setFederationId($fid)->setIdentityProvider(mb_substr($id['idp'], 0, 120) ?: null);
+        if ($orcid) {
+            $user->setOrcid($orcid);
+        }
         if ($id['firstname'] !== '') { $user->setFirstname($id['firstname']); }
         if ($id['lastname'] !== '') { $user->setLastname($id['lastname']); }
         if ($id['affiliation'] !== '' && !$user->getAffiliation()) { $user->setAffiliation($id['affiliation']); }
@@ -214,6 +334,34 @@ final class FederationService
     private function callbackUrl(Request $request): string
     {
         return $request->getSchemeAndHttpHost() . '/api/auth/federation/callback';
+    }
+
+    private function orcidCallbackUrl(Request $request): string
+    {
+        return $request->getSchemeAndHttpHost() . '/api/auth/orcid/callback';
+    }
+
+    private function publicOrcidEmail(string $orcid): string
+    {
+        $host = parse_url($this->orcidBaseUrl, PHP_URL_HOST);
+        if (!\is_string($host) || $host === '') {
+            throw new \RuntimeException('ORCID_BASE_URL invalide');
+        }
+        $url = 'https://pub.' . $host . '/v3.0/' . rawurlencode($orcid) . '/email';
+        $response = $this->http->request('GET', $url, [
+            'headers' => ['Accept' => 'application/vnd.orcid+json'],
+        ]);
+        if ($response->getStatusCode() !== 200) {
+            return '';
+        }
+        $emails = $response->toArray(false)['email'] ?? [];
+        return trim((string) ($emails[0]['email'] ?? ''));
+    }
+
+    private static function canonicalOrcid(string $value): string
+    {
+        $value = preg_replace('#^https?://orcid\.org/#i', '', trim($value)) ?? '';
+        return preg_match('/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/i', $value) ? strtoupper($value) : '';
     }
 
     private function sign(array $payload): string

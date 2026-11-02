@@ -12,8 +12,8 @@ use Symfony\Component\Security\Core\User\UserInterface;
 /**
  * Compte utilisateur.
  *
- * - Les comptes fédérés (RENATER via OIDC ou Shibboleth) n'ont pas de mot de passe :
- *   ils sont identifiés par federationId (eduPersonPrincipalName ou "sub" OIDC).
+ * - Les comptes fédérés (RENATER via OIDC/Shibboleth ou ORCID) n'ont pas de mot de passe :
+ *   ils sont identifiés par federationId (eppn, "sub" OIDC ou identifiant ORCID).
  * - Les comptes locaux (mot de passe) servent à l'amorçage et aux personnes hors fédération.
  * - ROLE_ADMIN est global ; les rôles "responsable" / "utilisateur" sont portés
  *   par SiteMembership, site par site.

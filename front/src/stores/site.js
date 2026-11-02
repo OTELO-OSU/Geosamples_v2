@@ -7,7 +7,7 @@ import api from '@/api/client'
  * '/' quand le site est servi par son propre nom d'hôte, '/s/<slug>/' sinon.
  */
 export const useSiteStore = defineStore('site', {
-  state: () => ({ site: null, mode: 'portal', base: '/', federation: { mode: 'none', loginUrl: null } }),
+  state: () => ({ site: null, mode: 'portal', base: '/', federation: { mode: 'none', loginUrl: null, orcidLoginUrl: null } }),
   getters: {
     slug: (s) => s.site?.slug,
     fields: (s) => s.site?.fields || [],

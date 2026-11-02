@@ -3,20 +3,23 @@
     <h1>Connexion</h1>
     <p class="text-muted mt-2">La consultation des données publiées est libre. La connexion sert à déposer et gérer des jeux de données.</p>
 
-    <section v-if="fed.loginUrl" class="gs-panel pa-6 mt-6">
-      <h2>Avec votre établissement</h2>
-      <p class="text-muted mt-1 mb-4">Fédération d'identité Éducation-Recherche (RENATER) : universités, CNRS, organismes de recherche.</p>
-      <v-btn color="primary" size="large" prepend-icon="mdi-school-outline" :href="federationHref">Choisir mon établissement</v-btn>
+    <section v-if="fed.loginUrl || fed.orcidLoginUrl" class="gs-panel pa-6 mt-6">
+      <h2>Connexion fédérée</h2>
+      <p class="text-muted mt-1 mb-4">Connectez-vous avec votre établissement ou votre identifiant ORCID.</p>
+      <div class="d-flex flex-wrap ga-3">
+        <v-btn v-if="fed.loginUrl" color="primary" size="large" prepend-icon="mdi-school-outline" :href="federationHref">Choisir mon établissement</v-btn>
+        <v-btn v-if="fed.orcidLoginUrl" color="success" size="large" prepend-icon="mdi-alpha-o-circle" :href="orcidHref">Se connecter avec ORCID</v-btn>
+      </div>
     </section>
 
     <section class="gs-panel pa-6 mt-4">
-      <h2>{{ fed.loginUrl ? 'Avec un compte local' : 'Compte' }}</h2>
-      <p v-if="fed.loginUrl" class="text-muted mt-1 mb-4">Pour les personnes hors fédération, sur invitation d'un administrateur.</p>
+      <h2>{{ fed.loginUrl || fed.orcidLoginUrl ? 'Avec un compte local' : 'Compte' }}</h2>
+      <p v-if="fed.loginUrl || fed.orcidLoginUrl" class="text-muted mt-1 mb-4">Pour les personnes hors fédération, sur invitation d'un administrateur.</p>
       <v-form class="mt-3" @submit.prevent="submit">
         <v-text-field v-model="email" label="E-mail" type="email" autocomplete="username" />
         <v-text-field v-model="password" label="Mot de passe" type="password" autocomplete="current-password" />
         <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
-        <v-btn type="submit" :color="fed.loginUrl ? undefined : 'primary'" :variant="fed.loginUrl ? 'outlined' : 'flat'" :loading="busy" :disabled="!email || !password">Se connecter</v-btn>
+        <v-btn type="submit" :color="fed.loginUrl || fed.orcidLoginUrl ? undefined : 'primary'" :variant="fed.loginUrl || fed.orcidLoginUrl ? 'outlined' : 'flat'" :loading="busy" :disabled="!email || !password">Se connecter</v-btn>
       </v-form>
     </section>
   </div>
@@ -41,10 +44,9 @@ const busy = ref(false)
 const error = ref('')
 const fed = computed(() => siteStore.federation)
 const next = computed(() => (typeof route.query.next === 'string' && route.query.next.startsWith('/') ? route.query.next : '/'))
-const federationHref = computed(() => {
-  const ret = (siteStore.base.replace(/\/$/, '') + next.value) || '/'
-  return `${fed.value.loginUrl}?return=${encodeURIComponent(ret)}`
-})
+const returnUrl = computed(() => (siteStore.base.replace(/\/$/, '') + next.value) || '/')
+const federationHref = computed(() => `${fed.value.loginUrl}?return=${encodeURIComponent(returnUrl.value)}`)
+const orcidHref = computed(() => `${fed.value.orcidLoginUrl}?return=${encodeURIComponent(returnUrl.value)}`)
 
 async function submit() {
   busy.value = true

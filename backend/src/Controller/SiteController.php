@@ -49,7 +49,11 @@ final class SiteController extends ApiController
         return $this->json([
             'site' => $site ? $this->presenter->site($site) : null,
             'boundByHost' => $site !== null && \in_array(mb_strtolower($request->getHost()), $site->getHostnames(), true),
-            'federation' => ['mode' => $this->federation->mode(), 'loginUrl' => $this->federation->loginUrl()],
+            'federation' => [
+                'mode' => $this->federation->mode(),
+                'loginUrl' => $this->federation->loginUrl(),
+                'orcidLoginUrl' => $this->federation->orcidLoginUrl(),
+            ],
             'user' => $user ? $this->presenter->user($user, true) : null,
         ]);
     }
