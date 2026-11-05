@@ -2,9 +2,9 @@ import { defineStore } from 'pinia'
 import api from '@/api/client'
 
 /**
- * Contexte du site courant. `mode` vaut 'site' (un site de valorisation) ou 'portal'
- * (liste des sites, administration globale). `base` est le préfixe de routage :
- * '/' quand le site est servi par son propre nom d'hôte, '/s/<slug>/' sinon.
+ * Current site context. `mode` is 'site' (a data management site) or 'portal'
+ * (site list, global administration). `base` is the routing prefix:
+ * '/' when the site is served on its own hostname, '/s/<slug>/' otherwise.
  */
 export const useSiteStore = defineStore('site', {
   state: () => ({ site: null, mode: 'portal', base: '/', federation: { mode: 'none', loginUrl: null, orcidLoginUrl: null } }),

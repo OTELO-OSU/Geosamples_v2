@@ -6,7 +6,7 @@
     </v-main>
     <v-snackbar v-model="ui.snack.show" :color="ui.snack.color" :timeout="ui.snack.timeout" location="bottom right">
       {{ ui.snack.text }}
-      <template #actions><v-btn variant="text" icon="mdi-close" aria-label="Fermer" @click="ui.snack.show = false" /></template>
+      <template #actions><v-btn variant="text" icon="mdi-close" aria-label="Close" @click="ui.snack.show = false" /></template>
     </v-snackbar>
   </v-app>
 </template>

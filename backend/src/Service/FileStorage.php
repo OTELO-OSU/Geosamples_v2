@@ -7,7 +7,7 @@ use App\Entity\DatasetFile;
 use App\Exception\ApiException;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
-/** Stockage des fichiers sur disque : {UPLOAD_DIR}/{site}/{uuid}/{aléatoire}.{ext} */
+/** Store files on disk: {UPLOAD_DIR}/{site}/{uuid}/{random}.{ext} */
 final class FileStorage
 {
     private const BLOCKED_EXT = ['php', 'phtml', 'phar', 'exe', 'sh', 'bat', 'cmd', 'js', 'html', 'htm', 'svg'];
@@ -18,7 +18,7 @@ final class FileStorage
     public function store(Dataset $d, UploadedFile $file, ?string $kind = null): DatasetFile
     {
         if (!$file->isValid()) {
-            throw new ApiException('Échec du téléversement : ' . $file->getErrorMessage());
+            throw new ApiException('Upload failed: ' . $file->getErrorMessage());
         }
         if ($file->getSize() > $this->maxUploadBytes) {
             throw new ApiException(sprintf('Fichier trop volumineux (max. %d Mo)', $this->maxUploadBytes / 1048576));
@@ -26,7 +26,7 @@ final class FileStorage
         $original = $this->safeName($file->getClientOriginalName());
         $ext = mb_strtolower(pathinfo($original, PATHINFO_EXTENSION));
         if (\in_array($ext, self::BLOCKED_EXT, true)) {
-            throw new ApiException("Extension .$ext non autorisée");
+            throw new ApiException("File extension .$ext is not allowed");
         }
         $mime = $file->getMimeType() ?: 'application/octet-stream';
         if ($kind === null || !\in_array($kind, DatasetFile::KINDS, true)) {
@@ -37,7 +37,7 @@ final class FileStorage
         }
         $dir = $this->dirFor($d);
         if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
-            throw new \RuntimeException("Impossible de créer $dir");
+            throw new \RuntimeException("Unable to create $dir");
         }
         $stored = bin2hex(random_bytes(16)) . ($ext ? ".$ext" : '');
         $size = (int) $file->getSize();
@@ -80,7 +80,7 @@ final class FileStorage
 
     private function safeName(string $name): string
     {
-        $name = preg_replace('/[^\pL\pN._ -]+/u', '_', basename($name)) ?? 'fichier';
-        return mb_substr(trim($name, '. ') ?: 'fichier', 0, 200);
+        $name = preg_replace('/[^\pL\pN._ -]+/u', '_', basename($name)) ?? 'file';
+        return mb_substr(trim($name, '. ') ?: 'file', 0, 200);
     }
 }

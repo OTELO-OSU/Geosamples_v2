@@ -10,12 +10,12 @@ use App\Exception\ApiException;
 use Symfony\Bundle\SecurityBundle\Security;
 
 /**
- * Règles d'autorisation (centralisées ici pour rester lisibles et testables).
+ * Authorization rules (centralized here to keep them readable and testable).
  *
  *  admin        : tout, sur tous les sites
- *  responsable  : configuration du site, membres, validation et édition de tous les jeux du site
- *  utilisateur  : dépôt / import / édition de ses propres jeux
- *  public       : lecture des jeux publiés ; fichiers des jeux en accès ouvert
+ *  manager      : site configuration, members, review, and editing all site datasets
+ *  contributor  : submitting / importing / editing their own datasets
+ *  public       : reading published datasets; open-access dataset files
  */
 final class Permissions
 {
@@ -34,7 +34,7 @@ final class Permissions
             throw ApiException::unauthorized();
         }
         if (!$u->isActive()) {
-            throw ApiException::forbidden('Compte désactivé');
+            throw ApiException::forbidden('Account disabled');
         }
         return $u;
     }
@@ -106,7 +106,7 @@ final class Permissions
         return $u !== null && $d->getOwner()?->getId() === $u->getId();
     }
 
-    public function denyUnless(bool $cond, string $msg = 'Accès refusé'): void
+    public function denyUnless(bool $cond, string $msg = 'Access denied'): void
     {
         if (!$cond) {
             throw $this->user() ? ApiException::forbidden($msg) : ApiException::unauthorized();

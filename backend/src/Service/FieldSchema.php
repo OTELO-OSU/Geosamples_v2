@@ -5,8 +5,8 @@ namespace App\Service;
 use App\Exception\ApiException;
 
 /**
- * Schéma des champs spécifiques d'un site : validation de la définition
- * (écran de configuration) et contrôle/normalisation des valeurs saisies.
+ * Schema for site-specific fields: validates definitions (configuration screen)
+ * and checks/normalizes entered values.
  */
 final class FieldSchema
 {
@@ -14,14 +14,14 @@ final class FieldSchema
     public const FILTERS = [null, 'select', 'range', 'text'];
     public const SCOPES = ['dataset', 'point'];
 
-    /** Clés réservées aux colonnes communes (évite les collisions dans l'import) */
+    /** Keys reserved for common columns (prevents import collisions). */
     public const RESERVED = [
         'dataset_id', 'dataset_ref', 'title', 'description', 'keywords', 'authors', 'license', 'access_right',
         'language', 'temporal_start', 'temporal_end', 'doi', 'point_name', 'longitude', 'latitude', 'elevation',
         'vertical_datum', 'observed_at', 'observed_end', 'crs', 'x', 'y', 'q', 'from', 'to', 'bbox', 'status',
     ];
 
-    /** Valide et normalise la liste de définitions de champs. */
+    /** Validate and normalize the list of field definitions. */
     public function normalizeDefinitions(array $fields): array
     {
         $out = [];
@@ -29,26 +29,26 @@ final class FieldSchema
         $seen = [];
         foreach (array_values($fields) as $i => $f) {
             if (!\is_array($f)) {
-                $errors["fields[$i]"] = 'Définition invalide';
+                $errors["fields[$i]"] = 'Invalid definition';
                 continue;
             }
             $key = trim((string) ($f['key'] ?? ''));
             if (!preg_match('/^[a-z][a-z0-9_]{0,62}$/', $key)) {
-                $errors["fields[$i].key"] = 'Clé invalide (minuscules, chiffres, _ ; commence par une lettre)';
+                $errors["fields[$i].key"] = 'Invalid key (lowercase letters, digits, and _; must start with a letter)';
                 continue;
             }
             if (\in_array($key, self::RESERVED, true)) {
-                $errors["fields[$i].key"] = "La clé « $key » est réservée";
+                $errors["fields[$i].key"] = "The key “$key” is reserved";
                 continue;
             }
             if (isset($seen[$key])) {
-                $errors["fields[$i].key"] = "Clé « $key » en double";
+                $errors["fields[$i].key"] = "Duplicate key “$key”";
                 continue;
             }
             $seen[$key] = true;
             $type = $f['type'] ?? 'text';
             if (!\in_array($type, self::TYPES, true)) {
-                $errors["fields[$i].type"] = 'Type inconnu';
+                $errors["fields[$i].type"] = 'Unknown type';
                 continue;
             }
             $filter = $f['filter'] ?? null;
@@ -56,7 +56,7 @@ final class FieldSchema
                 $filter = null;
             }
             if (!\in_array($filter, self::FILTERS, true)) {
-                $errors["fields[$i].filter"] = 'Type de filtre inconnu';
+                $errors["fields[$i].filter"] = 'Unknown filter type';
                 continue;
             }
             $options = array_values(array_filter(array_map(
@@ -64,7 +64,7 @@ final class FieldSchema
                 (array) ($f['options'] ?? [])
             ), static fn ($o) => $o !== ''));
             if (\in_array($type, ['select', 'multiselect'], true) && !$options) {
-                $errors["fields[$i].options"] = 'Une liste de valeurs est requise';
+                $errors["fields[$i].options"] = 'A list of values is required';
                 continue;
             }
             $scope = $f['scope'] ?? 'dataset';
@@ -83,20 +83,20 @@ final class FieldSchema
             ];
         }
         if ($errors) {
-            throw ApiException::validation($errors, 'Définition des champs invalide');
+            throw ApiException::validation($errors, 'Invalid field definition');
         }
         return $out;
     }
 
     /**
-     * Contrôle les valeurs d'un objet properties pour la portée donnée.
+     * Validate the values in a properties object for the given scope.
      *
-     * $keepInvalid (reprise de données) : une valeur qui ne passe pas la validation est
-     * conservée telle quelle au lieu d'être écartée ; l'erreur est seulement signalée.
+     * $keepInvalid (data migration): a value that fails validation is preserved as-is
+     * instead of being discarded; only an error is reported.
      *
      * @return array{0: array, 1: array<string,string>, 2: array<string,string>}
-     *         [valeurs, erreurs, valeurs d'origine des champs invalides (même clés que les erreurs)]
-     *         Une erreur sans valeur d'origine = champ obligatoire absent.
+     *         [values, errors, original values for invalid fields (same keys as errors)]
+     *         An error without an original value means a required field is missing.
      */
     public function validateValues(array $fields, array $values, string $scope, string $prefix = 'properties', bool $keepInvalid = false): array
     {
@@ -112,7 +112,7 @@ final class FieldSchema
             $empty = $raw === null || $raw === '' || $raw === [];
             if ($empty) {
                 if (!empty($f['required'])) {
-                    $errors["$prefix.$key"] = sprintf('« %s » est obligatoire', $f['label']);
+                    $errors["$prefix.$key"] = sprintf('“%s” is required', $f['label']);
                 }
                 continue;
             }
@@ -135,13 +135,13 @@ final class FieldSchema
             case 'number':
                 $v = \is_string($raw) ? str_replace([',', ' '], ['.', ''], trim($raw)) : $raw;
                 if (!is_numeric($v)) {
-                    throw new \InvalidArgumentException('nombre attendu');
+                    throw new \InvalidArgumentException('number expected');
                 }
                 return (float) $v;
             case 'integer':
                 $v = \is_string($raw) ? str_replace(' ', '', trim($raw)) : $raw;
                 if (filter_var($v, FILTER_VALIDATE_INT) === false) {
-                    throw new \InvalidArgumentException('entier attendu');
+                    throw new \InvalidArgumentException('integer expected');
                 }
                 return (int) $v;
             case 'boolean':
@@ -155,7 +155,7 @@ final class FieldSchema
                 if (\in_array($s, ['0', 'false', 'non', 'no', 'n', 'faux'], true)) {
                     return false;
                 }
-                throw new \InvalidArgumentException('oui/non attendu');
+                throw new \InvalidArgumentException('yes/no expected');
             case 'date':
                 $d = DateParser::parse($raw);
                 return $d?->format('Y-m-d');
@@ -163,7 +163,7 @@ final class FieldSchema
                 $v = trim((string) $raw);
                 $match = $this->matchOption($f['options'], $v);
                 if ($match === null) {
-                    throw new \InvalidArgumentException("valeur « $v » hors liste");
+                    throw new \InvalidArgumentException("value “$v” is not in the list");
                 }
                 return $match;
             case 'multiselect':
@@ -176,7 +176,7 @@ final class FieldSchema
                     }
                     $match = $this->matchOption($f['options'], $item);
                     if ($match === null) {
-                        throw new \InvalidArgumentException("valeur « $item » hors liste");
+                        throw new \InvalidArgumentException("value “$item” is not in the list");
                     }
                     $out[] = $match;
                 }
@@ -184,19 +184,19 @@ final class FieldSchema
             case 'url':
                 $v = trim((string) $raw);
                 if (!filter_var($v, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $v)) {
-                    throw new \InvalidArgumentException('URL http(s) attendue');
+                    throw new \InvalidArgumentException('http(s) URL expected');
                 }
                 return $v;
             default:
                 $v = trim((string) $raw);
                 if (mb_strlen($v) > 10000) {
-                    throw new \InvalidArgumentException('texte trop long');
+                    throw new \InvalidArgumentException('text is too long');
                 }
                 return $v;
         }
     }
 
-    /** Correspondance insensible à la casse et aux accents avec les valeurs autorisées. */
+    /** Match allowed values case-insensitively and without regard to accents. */
     private function matchOption(array $options, string $value): ?string
     {
         if (\in_array($value, $options, true)) {

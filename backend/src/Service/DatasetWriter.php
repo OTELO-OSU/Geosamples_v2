@@ -7,20 +7,20 @@ use App\Entity\SamplingPoint;
 use App\Exception\ApiException;
 
 /**
- * Applique un payload JSON (formulaire ou ligne d'import regroupée) à un Dataset,
- * avec validation complète. Lève ApiException 422 avec le détail des erreurs.
+ * Apply a JSON payload (form or grouped import row) to a Dataset, validating it fully.
+ * Throws ApiException 422 with error details.
  *
- * Mode $lenient (reprise de données) : rien n'est rejeté et rien n'est deviné.
- *  - une valeur absente reste vide (pas de licence / droit d'accès / mots-clés par défaut) ;
- *  - une valeur invalide est conservée telle quelle chaque fois que c'est possible ;
- *    elle n'est vidée que si le stockage l'impose (date illisible, nombre non numérique,
- *    licence plus longue que la colonne, droit d'accès hors énumération, point sans coordonnées) ;
- *  - tous les problèmes sont renvoyés, champ par champ, avec la valeur d'origine :
+ * In $lenient mode (data migration), nothing is rejected or guessed.
+ *  - a missing value remains empty (no default license / access right / keywords);
+ *  - an invalid value is preserved as-is whenever possible;
+ *    a value is cleared only when storage requires it (unreadable date, non-numeric number,
+ *    license exceeds column length, access right is outside the enum, point has no coordinates);
+ *  - all issues are returned, field by field, with the original value:
  *      array<string, array{kind: 'missing'|'invalid'|'adjusted'|'dropped', message: string, original: ?string}>
- *    (clés : "title", "license", "properties.xxx", "points[3].longitude", "points[3]"…)
- *  - l'appelant décide du statut ; un résumé est écrit dans reviewComment (STORE_REVIEW_COMMENT).
+ *    (keys: "title", "license", "properties.xxx", "points[3].longitude", "points[3]"...)
+ *  - the caller decides the status; a summary is written to reviewComment (STORE_REVIEW_COMMENT).
  *
- * Payload :
+ * Payload:
  * {title, description, keywords[], authors[{name, affiliation, orcid}], license, accessRight,
  *  language, temporalStart, temporalEnd, doi, ordarUrl, properties{},
  *  points[{id?, name, longitude, latitude, elevation, verticalDatum, observedAt, observedEnd,
@@ -30,12 +30,12 @@ final class DatasetWriter
 {
     public const MAX_POINTS = 5000;
 
-    /** Mettre à false si reviewComment est affiché publiquement : le rapport CSV contient tout. */
+    /** Set to false if reviewComment is publicly displayed: the CSV report contains everything. */
     private const STORE_REVIEW_COMMENT = true;
 
     public function __construct(private FieldSchema $schema) {}
 
-    /** @return array<string,string> erreurs (vide si OK) — n'altère pas l'entité (mode lecture seule) */
+    /** @return array<string,string> errors (empty if OK) — does not modify the entity (read-only mode) */
     public function validate(Dataset $dataset, array $payload): array
     {
         try {
@@ -47,8 +47,8 @@ final class DatasetWriter
     }
 
     /**
-     * @return array en mode $lenient : problèmes rencontrés, voir ci-dessus (vide si tout est renseigné et valide) ;
-     *               sinon toujours vide (une ApiException est levée en cas d'erreur)
+     * @return array in $lenient mode: encountered issues, see above (empty if all values are present and valid);
+     *               otherwise always empty (an ApiException is thrown on error)
      */
     public function apply(Dataset $dataset, array $payload, bool $lenient = false): array
     {
@@ -65,8 +65,8 @@ final class DatasetWriter
         $site = $d->getSite();
         $settings = $site->getSettings();
         $fields = $site->getFields();
-        $errors = []; // clé => message : bloquant hors reprise
-        $issues = []; // clé => {kind, message, original} : uniquement en reprise
+        $errors = []; // key => message: blocks import outside migration mode
+        $issues = []; // key => {kind, message, original}: migration mode only
 
         $note = function (string $key, string $kind, string $message, mixed $original = null) use (&$issues, $lenient): void {
             if ($lenient) {
@@ -79,23 +79,23 @@ final class DatasetWriter
         };
         $kindOf = static fn (mixed $v): string => ($v === null || $v === '') ? 'missing' : 'invalid';
 
-        // --- Titre ------------------------------------------------------------------------
+        // --- Title -----------------------------------------------------------------------
         $title = trim((string) ($p['title'] ?? ''));
         if ($title === '') {
-            $fail('title', 'Le titre est obligatoire', null, 'missing');
+            $fail('title', 'Title is required', null, 'missing');
         } elseif (mb_strlen($title) > 500) {
-            $fail('title', 'Titre trop long (500 caractères max.)', $title);
+            $fail('title', 'Title is too long (max. 500 characters)', $title);
             if ($lenient) {
-                $title = mb_substr($title, 0, 500); // limite de colonne : le titre complet reste dans le rapport
+                $title = mb_substr($title, 0, 500); // Column limit: the full title remains in the report.
             }
         }
 
         $description = trim((string) ($p['description'] ?? '')) ?: null;
         if ($description === null) {
-            $note('description', 'missing', 'Description absente dans la source');
+            $note('description', 'missing', 'Description missing from source');
         }
 
-        // --- Mots-clés --------------------------------------------------------------------
+        // --- Keywords --------------------------------------------------------------------
         $keywords = $p['keywords'] ?? [];
         if (\is_string($keywords)) {
             $keywords = preg_split('/\s*[;,]\s*/', $keywords);
@@ -105,13 +105,13 @@ final class DatasetWriter
         ), static fn ($k) => $k !== '')));
         if (!$keywords) {
             if ($lenient) {
-                $note('keywords', 'missing', 'Aucun mot-clé dans la source');
+                $note('keywords', 'missing', 'No keywords in the source');
             } elseif (!empty($settings['requireKeywords'])) {
-                $errors['keywords'] = 'Au moins un mot-clé est requis';
+                $errors['keywords'] = 'At least one keyword is required';
             }
         }
 
-        // --- Auteurs ----------------------------------------------------------------------
+        // --- Authors ---------------------------------------------------------------------
         $authors = [];
         foreach (array_values((array) ($p['authors'] ?? [])) as $i => $a) {
             if (\is_string($a)) {
@@ -125,8 +125,8 @@ final class DatasetWriter
             if ($orcid !== null) {
                 $orcid = preg_replace('#^https?://orcid\.org/#', '', $orcid);
                 if (!preg_match('/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/', $orcid)) {
-                    // la valeur est conservée telle quelle (aucune contrainte de stockage)
-                    $fail("authors[$i].orcid", "ORCID invalide (0000-0000-0000-0000) pour l'auteur « $name »", $orcid);
+                    // Keep the value as-is (there is no storage constraint).
+                    $fail("authors[$i].orcid", "Invalid ORCID (0000-0000-0000-0000) for author “$name”", $orcid);
                 }
             }
             $authors[] = array_filter([
@@ -136,56 +136,56 @@ final class DatasetWriter
             ], static fn ($v) => $v !== null);
         }
         if (!$authors) {
-            $note('authors', 'missing', 'Aucun auteur dans la source');
+            $note('authors', 'missing', 'No authors in the source');
         }
 
-        // --- Droit d'accès ----------------------------------------------------------------
+        // --- Access right ----------------------------------------------------------------
         $access = $p['accessRight'] ?? null;
         if ($access === null) {
             if ($lenient) {
-                // Colonne obligatoire : valeur technique la plus protectrice, signalée dans le rapport.
-                // Si accessRight est nullable dans l'entité, remplacer par null.
+                // Required column: use the most restrictive technical value and report it.
+                // If accessRight is nullable in the entity, use null instead.
                 $access = Dataset::ACCESS_RESTRICTED;
-                $note('accessRight', 'adjusted', "Droit d'accès absent dans la source : « restricted » appliqué (colonne obligatoire)");
+                $note('accessRight', 'adjusted', "Access right missing from source: “restricted” applied (required column)");
             } else {
                 $access = $settings['defaultAccessRight'] ?? Dataset::ACCESS_OPEN;
             }
         }
         if (!\in_array($access, [Dataset::ACCESS_OPEN, Dataset::ACCESS_RESTRICTED], true)) {
-            $fail('accessRight', 'Valeur attendue : open ou restricted', $access);
+            $fail('accessRight', 'Expected value: open or restricted', $access);
             if ($lenient) {
-                $access = Dataset::ACCESS_RESTRICTED; // énumération : la valeur d'origine n'est pas stockable
+                $access = Dataset::ACCESS_RESTRICTED; // Enum: the original value cannot be stored.
             }
         }
 
-        // --- Licence ----------------------------------------------------------------------
+        // --- License ---------------------------------------------------------------------
         $license = trim((string) ($p['license'] ?? ($lenient ? '' : ($settings['defaultLicense'] ?? '')))) ?: null;
         if ($license === null) {
-            $note('license', 'missing', 'Licence absente dans la source (laissée vide)');
+            $note('license', 'missing', 'License missing from source (left blank)');
         } elseif (mb_strlen($license) > 40) {
-            $fail('license', 'Licence trop longue (40 caractères max.)', $license);
+            $fail('license', 'License is too long (max. 40 characters)', $license);
             if ($lenient) {
-                $license = null; // limite de colonne : la valeur d'origine reste dans le rapport
+                $license = null; // Column limit: the original value remains in the report.
             }
         }
 
-        // --- Langue -----------------------------------------------------------------------
+        // --- Language --------------------------------------------------------------------
         $language = trim((string) ($p['language'] ?? '')) ?: null;
         if ($language === null) {
-            $note('language', 'missing', 'Langue absente dans la source');
+            $note('language', 'missing', 'Language missing from source');
         } elseif (!preg_match('/^[a-z]{2,3}(-[A-Za-z]{2})?$/', $language)) {
-            $fail('language', 'Code langue ISO attendu (fr, en…)', $language);
+            $fail('language', 'Expected ISO language code (fr, en...)', $language);
             if ($lenient) {
-                $language = null; // colonne courte : la valeur d'origine reste dans le rapport
+                $language = null; // Short column: the original value remains in the report.
             }
         }
 
-        // --- Période ----------------------------------------------------------------------
+        // --- Period ----------------------------------------------------------------------
         $tStart = $tEnd = null;
         try {
             $tStart = DateParser::parse($p['temporalStart'] ?? null);
         } catch (\InvalidArgumentException $e) {
-            $fail('temporalStart', $e->getMessage(), $p['temporalStart'] ?? null); // date illisible : non stockable
+            $fail('temporalStart', $e->getMessage(), $p['temporalStart'] ?? null); // Unreadable date: cannot be stored.
         }
         try {
             $tEnd = DateParser::parse($p['temporalEnd'] ?? null, true);
@@ -193,24 +193,24 @@ final class DatasetWriter
             $fail('temporalEnd', $e->getMessage(), $p['temporalEnd'] ?? null);
         }
         if ($tStart && $tEnd && $tEnd < $tStart) {
-            // en reprise, les deux dates sont conservées telles quelles
-            $fail('temporalEnd', 'La fin de période précède le début', $p['temporalEnd'] ?? null);
+            // In migration mode, keep both dates as-is.
+            $fail('temporalEnd', 'Period end is before period start', $p['temporalEnd'] ?? null);
         }
 
-        // --- DOI / ORDaR ------------------------------------------------------------------
+        // --- DOI / ORDaR -----------------------------------------------------------------
         $doi = trim((string) ($p['doi'] ?? '')) ?: null;
         if ($doi !== null) {
             $doi = preg_replace('#^https?://(dx\.)?doi\.org/#i', '', $doi);
             if (!preg_match('#^10\.\d{4,9}/\S+$#', $doi)) {
-                $fail('doi', 'DOI invalide (10.xxxx/…)', $doi); // valeur conservée
+                $fail('doi', 'Invalid DOI (10.xxxx/...)', $doi); // Value is retained.
             }
         }
         $ordarUrl = trim((string) ($p['ordarUrl'] ?? '')) ?: null;
         if ($ordarUrl !== null && !preg_match('#^https?://#i', $ordarUrl)) {
-            $fail('ordarUrl', 'URL http(s) attendue', $ordarUrl); // valeur conservée
+            $fail('ordarUrl', 'Expected http(s) URL', $ordarUrl); // Value is retained.
         }
 
-        // --- Champs spécifiques du jeu ----------------------------------------------------
+        // --- Dataset-specific fields -----------------------------------------------------
         [$props, $propErrors, $propOrigins] = $this->schema->validateValues(
             $fields, (array) ($p['properties'] ?? []), 'dataset', 'properties', $lenient
         );
@@ -218,18 +218,18 @@ final class DatasetWriter
             $fail($k, $m, $propOrigins[$k] ?? null, isset($propOrigins[$k]) ? 'invalid' : 'missing');
         }
 
-        // --- Points de prélèvement --------------------------------------------------------
+        // --- Sampling points -------------------------------------------------------------
         $pointsIn = array_values((array) ($p['points'] ?? []));
         if (!$pointsIn) {
-            $fail('points', 'Au moins un point géolocalisé est requis', null, 'missing');
+            $fail('points', 'At least one geolocated point is required', null, 'missing');
         }
         if (\count($pointsIn) > self::MAX_POINTS) {
             $n = \count($pointsIn);
             $fail(
                 'points',
                 $lenient
-                    ? sprintf('Trop de points : %d dans la source, seuls les %d premiers sont repris', $n, self::MAX_POINTS)
-                    : sprintf('Trop de points (%d max.)', self::MAX_POINTS),
+                    ? sprintf('Too many points: %d in source, only the first %d will be imported', $n, self::MAX_POINTS)
+                    : sprintf('Too many points (%d max.)', self::MAX_POINTS),
                 "$n points"
             );
             $pointsIn = $lenient ? \array_slice($pointsIn, 0, self::MAX_POINTS) : [];
@@ -252,17 +252,17 @@ final class DatasetWriter
             $lonBad = $lon === null || $lon < -180 || $lon > 180;
             $latBad = $lat === null || $lat < -90 || $lat > 90;
             if ($lonBad) {
-                $fail("$pfx.longitude", 'Longitude WGS84 invalide (-180 à 180)', $rawLon, $kindOf($rawLon));
+                $fail("$pfx.longitude", 'Invalid WGS84 longitude (-180 to 180)', $rawLon, $kindOf($rawLon));
             }
             if ($latBad) {
-                $fail("$pfx.latitude", 'Latitude WGS84 invalide (-90 à 90)', $rawLat, $kindOf($rawLat));
+                $fail("$pfx.latitude", 'Invalid WGS84 latitude (-90 to 90)', $rawLat, $kindOf($rawLat));
             }
             $elevRaw = $pi['elevation'] ?? null;
             $elev = $this->num($elevRaw);
             if ($elevRaw !== null && $elevRaw !== '' && ($elev === null || $elev < -12000 || $elev > 9000)) {
-                // Valeur numérique hors plage : conservée. Valeur non numérique : $elev est déjà null
-                // (colonne numérique), la valeur d'origine reste dans le rapport.
-                $fail("$pfx.elevation", 'Altitude invalide (m, entre -12000 et 9000)', $elevRaw);
+                // Out-of-range numeric value: retained. Non-numeric value: $elev is already null
+                // (numeric column), and the original value remains in the report.
+                $fail("$pfx.elevation", 'Invalid elevation (m, between -12000 and 9000)', $elevRaw);
             }
             $obs = $obsEnd = null;
             try {
@@ -276,7 +276,7 @@ final class DatasetWriter
                 $fail("$pfx.observedEnd", $e->getMessage(), $pi['observedEnd'] ?? null);
             }
             if ($obs && $obsEnd && $obsEnd < $obs) {
-                $fail("$pfx.observedEnd", 'La fin précède le début', $pi['observedEnd'] ?? null); // valeurs conservées
+                $fail("$pfx.observedEnd", 'End date is before start date', $pi['observedEnd'] ?? null); // Preserve input values.
             }
             [$pprops, $pErr, $pOrigins] = $this->schema->validateValues(
                 $fields, (array) ($pi['properties'] ?? []), 'point', "$pfx.properties", $lenient
@@ -285,13 +285,13 @@ final class DatasetWriter
                 $fail($k, $m, $pOrigins[$k] ?? null, isset($pOrigins[$k]) ? 'invalid' : 'missing');
             }
             if ($lonBad || $latBad) {
-                // Un point sans coordonnées WGS84 valides ne peut pas être enregistré : on garde
-                // toutes ses valeurs d'origine dans le rapport.
-                $note($pfx, 'dropped', 'Point non enregistré : coordonnées WGS84 absentes ou invalides', json_encode(array_filter([
-                    'nom' => $pi['name'] ?? null,
+                // A point without valid WGS84 coordinates cannot be saved; retain all
+                // its original values in the report.
+                $note($pfx, 'dropped', 'Point not saved: WGS84 coordinates are missing or invalid', json_encode(array_filter([
+                    'name' => $pi['name'] ?? null,
                     'longitude' => $rawLon,
                     'latitude' => $rawLat,
-                    'systeme' => $pi['_crs'] ?? null,
+                    'coordinate_system' => $pi['_crs'] ?? null,
                     'srcCrs' => $pi['srcCrs'] ?? null,
                     'srcX' => $pi['srcX'] ?? null,
                     'srcY' => $pi['srcY'] ?? null,
@@ -333,7 +333,7 @@ final class DatasetWriter
             $points[] = $pt;
         }
 
-        // Si aucune période n'est donnée au niveau du jeu, on la déduit des points.
+        // If no dataset-level period is provided, derive it from the points.
         if (!$tStart) {
             $dates = [];
             foreach ($points as $pt) {
@@ -360,17 +360,17 @@ final class DatasetWriter
         if ($lenient && $issues && self::STORE_REVIEW_COMMENT) {
             $lines = [];
             foreach (array_slice($issues, 0, 30, true) as $k => $i) {
-                $line = "- $k : {$i['message']}";
+                $line = "- $k: {$i['message']}";
                 if ($i['original'] !== null && $i['original'] !== '') {
-                    $line .= ' — valeur d\'origine : « ' . mb_substr($i['original'], 0, 200) . ' »';
+                    $line .= ' — original value: “' . mb_substr($i['original'], 0, 200) . '”';
                 }
                 $lines[] = $line;
             }
             if (\count($issues) > 30) {
-                $lines[] = '- … ' . (\count($issues) - 30) . ' autre(s) (voir le rapport CSV de la reprise)';
+                $lines[] = '- ... ' . (\count($issues) - 30) . ' more (see the migration CSV report)';
             }
             $d->setReviewComment(
-                "Reprise geo-samples : valeurs absentes ou invalides dans la source (laissées vides ou conservées telles quelles) :\n"
+                "geo-samples migration: values missing or invalid in source (left blank or preserved as-is):\n"
                 . implode("\n", $lines)
             );
         }

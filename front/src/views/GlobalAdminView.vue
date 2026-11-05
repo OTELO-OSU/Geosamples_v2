@@ -3,7 +3,7 @@
     <h1>Global administration</h1>
     <v-tabs v-model="tab" color="primary" class="mt-4 mb-6">
       <v-tab value="sites">Sites</v-tab>
-      <v-tab value="users">Comptes</v-tab>
+      <v-tab value="users">Accounts</v-tab>
     </v-tabs>
 
     <template v-if="tab === 'sites'">
@@ -15,29 +15,29 @@
             <td class="text-body-2">{{ s.hostnames.join(', ') || '—' }}</td>
             <td class="text-end">{{ s.datasets }}</td>
             <td class="text-end text-no-wrap">
-              <v-btn size="small" variant="text" :href="`/s/${s.slug}/`">Ouvrir</v-btn>
-              <v-btn size="small" variant="text" :href="`/s/${s.slug}/administration`">Configurer</v-btn>
-              <v-btn size="small" variant="text" color="error" icon="mdi-delete-outline" :aria-label="`Supprimer ${s.title}`" @click="delSite(s)" />
+              <v-btn size="small" variant="text" :href="`/s/${s.slug}/`">Open</v-btn>
+              <v-btn size="small" variant="text" :href="`/s/${s.slug}/site-administration`">Configure</v-btn>
+              <v-btn size="small" variant="text" color="error" icon="mdi-delete-outline" :aria-label="`Delete ${s.title}`" @click="delSite(s)" />
             </td>
           </tr>
         </tbody>
       </v-table>
       <div class="gs-panel pa-5 mt-6" style="max-width: 720px">
-        <h2>Nouveau site</h2>
+        <h2>New site</h2>
         <p class="text-muted text-body-2 mt-1 mb-4">The site is created empty; its manager can then configure the text, map, and fields under “Administration”.</p>
         <div class="d-flex ga-4 flex-wrap">
-          <v-text-field v-model="nsite.title" label="Nom *" style="min-width: 240px" @update:model-value="autoSlug" />
-          <v-text-field v-model="nsite.slug" label="Identifiant *" hint="minuscules, chiffres, tirets" persistent-hint style="max-width: 220px" :error-messages="errs.slug" />
+          <v-text-field v-model="nsite.title" label="Name *" style="min-width: 240px" @update:model-value="autoSlug" />
+          <v-text-field v-model="nsite.slug" label="Identifier *" hint="lowercase letters, digits, hyphens" persistent-hint style="max-width: 220px" :error-messages="errs.slug" />
         </div>
         <v-text-field v-model="nsite.hostnames" label="Hostname (optional)" placeholder="myproject.otelo.univ-lorraine.fr" :error-messages="errs.hostnames" />
-        <v-text-field v-model="nsite.managerEmail" label="E-mail du responsable (facultatif)" type="email" />
+        <v-text-field v-model="nsite.managerEmail" label="Manager email (optional)" type="email" />
         <v-btn color="primary" :loading="busy" :disabled="!nsite.slug || !nsite.title" @click="createSite">Create site</v-btn>
       </div>
     </template>
 
     <template v-else>
       <div class="d-flex ga-3 mb-4 flex-wrap">
-        <v-text-field v-model="q" prepend-inner-icon="mdi-magnify" label="Rechercher un compte" density="compact" hide-details style="max-width: 360px" />
+        <v-text-field v-model="q" prepend-inner-icon="mdi-magnify" label="Search accounts" density="compact" hide-details style="max-width: 360px" />
         <v-spacer />
         <v-btn variant="outlined" prepend-icon="mdi-account-plus-outline" @click="userDialog = true">Create local account</v-btn>
       </div>
@@ -46,20 +46,20 @@
         <tbody>
           <tr v-for="u in users" :key="u.id">
             <td><strong>{{ u.displayName }}</strong><br /><span class="text-muted text-body-2">{{ u.email }} · {{ u.federated ? 'federated' : u.local ? 'local' : 'pre-created' }}</span></td>
-            <td class="text-body-2">{{ u.memberships.map((m) => `${m.site} (${m.status === 'pending' ? 'demande' : m.role})`).join(', ') || '—' }}</td>
-            <td class="text-body-2">{{ u.lastLoginAt ? fmtDate(u.lastLoginAt, true) : 'jamais' }}</td>
-            <td><v-checkbox-btn :model-value="u.admin" :disabled="u.id === auth.user.id" :aria-label="`Administrateur : ${u.email}`" @update:model-value="(v) => patchUser(u, { admin: v })" /></td>
-            <td><v-checkbox-btn :model-value="u.active" :disabled="u.id === auth.user.id" :aria-label="`Actif : ${u.email}`" @update:model-value="(v) => patchUser(u, { active: v })" /></td>
+            <td class="text-body-2">{{ u.memberships.map((m) => `${m.site} (${m.status === 'pending' ? 'pending' : m.role === 'responsable' ? 'Manager' : 'User'})`).join(', ') || '—' }}</td>
+            <td class="text-body-2">{{ u.lastLoginAt ? fmtDate(u.lastLoginAt, true) : 'Never' }}</td>
+            <td><v-checkbox-btn :model-value="u.admin" :disabled="u.id === auth.user.id" :aria-label="`Administrator: ${u.email}`" @update:model-value="(v) => patchUser(u, { admin: v })" /></td>
+            <td><v-checkbox-btn :model-value="u.active" :disabled="u.id === auth.user.id" :aria-label="`Active: ${u.email}`" @update:model-value="(v) => patchUser(u, { active: v })" /></td>
           </tr>
         </tbody>
       </v-table>
       <v-dialog v-model="userDialog" max-width="520">
-        <v-card title="Compte local">
+        <v-card title="Local account">
           <v-card-text>
             <div class="d-flex ga-3"><v-text-field v-model="nuser.firstname" label="First name" /><v-text-field v-model="nuser.lastname" label="Last name" /></div>
-            <v-text-field v-model="nuser.email" label="E-mail *" :error-messages="errs.email" />
+            <v-text-field v-model="nuser.email" label="Email *" :error-messages="errs.email" />
             <v-text-field v-model="nuser.password" label="Password *" type="password" hint="At least 12 characters; share it with the user" persistent-hint :error-messages="errs.password" />
-            <v-checkbox v-model="nuser.admin" label="Administrateur" hide-details />
+            <v-checkbox v-model="nuser.admin" label="Administrator" hide-details />
           </v-card-text>
           <v-card-actions><v-spacer /><v-btn variant="text" @click="userDialog = false">Cancel</v-btn><v-btn color="primary" :loading="busy" @click="createUser">Create</v-btn></v-card-actions>
         </v-card>
@@ -67,12 +67,12 @@
     </template>
 
   <v-dialog v-model="forceDialog" max-width="480">
-    <v-card title="Supprimer le site">
+    <v-card title="Delete site">
       <v-card-text>{{ forceMessage }}</v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" @click="forceDialog = false">Non</v-btn>
-        <v-btn color="error" variant="flat" :loading="busy" @click="confirmForce">Oui</v-btn>
+        <v-btn variant="text" @click="forceDialog = false">No</v-btn>
+        <v-btn color="error" variant="flat" :loading="busy" @click="confirmForce">Yes</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -124,7 +124,7 @@ async function createSite() {
   } catch (e) { errs.value = errorDetails(e); ui.error(errorMessage(e)) } finally { busy.value = false }
 }
 async function delSite(s, force = false) {
-  if (!force && !confirm(`Supprimer le site « ${s.title} » ?`)) return
+  if (!force && !confirm(`Delete the site “${s.title}”?`)) return
   busy.value = true
   try {
     // for DELETE, axios needs the body under the `data` key

@@ -13,7 +13,7 @@ export async function readTable(file) {
     const ExcelJS = (await import('exceljs')).default
     const wb = new ExcelJS.Workbook()
     await wb.xlsx.load(await file.arrayBuffer())
-    const ws = wb.worksheets.find((w) => w.state !== 'hidden' && w.name !== 'Help') || wb.worksheets[0]
+    const ws = wb.worksheets.find((w) => w.state !== 'hidden' && !['Help', 'Aide'].includes(w.name)) || wb.worksheets[0]
     const headers = []
     ws.getRow(1).eachCell({ includeEmpty: true }, (cell, col) => { headers[col - 1] = cellText(cell.value) })
     const rows = []

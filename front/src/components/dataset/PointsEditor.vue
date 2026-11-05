@@ -125,7 +125,7 @@ function convert(p) {
 function summary(p) {
   const parts = []
   if (p.latitude !== '' && p.longitude !== '') parts.push(`${(+p.latitude).toFixed(4)}, ${(+p.longitude).toFixed(4)}`)
-  else parts.push('position à renseigner')
+  else parts.push('location required')
   if (p.elevation !== '' && p.elevation !== null) parts.push(fmtElevation(+p.elevation))
   if (p.observedAt) parts.push(String(p.observedAt).slice(0, 16).replace('T', ' '))
   return parts.join(' — ')

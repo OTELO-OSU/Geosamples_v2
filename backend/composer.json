@@ -1,6 +1,6 @@
 {
     "name": "otelo/geosamples-backend",
-    "description": "GeoSamples v2 - backend multi-sites de valorisation de jeux de données géolocalisés (OTELo)",
+    "description": "GeoSamples v2 - multi-site backend for managing geolocated datasets (OTELo)",
     "type": "project",
     "license": "proprietary",
     "minimum-stability": "stable",

@@ -1,9 +1,9 @@
 import dayjs from 'dayjs'
-import 'dayjs/locale/fr'
+import 'dayjs/locale/en'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
-dayjs.locale('fr')
+dayjs.locale('en')
 
 export function fmtDate(v, withTime = false) {
   if (!v) return ''
@@ -22,7 +22,7 @@ export function fmtNumber(v, digits = 2) {
   if (v === null || v === undefined || v === '') return ''
   const n = Number(v)
   if (!Number.isFinite(n)) return String(v)
-  return n.toLocaleString('fr-FR', { maximumFractionDigits: digits })
+  return n.toLocaleString('en-US', { maximumFractionDigits: digits })
 }
 
 export function fmtElevation(v, datum) {
@@ -31,16 +31,16 @@ export function fmtElevation(v, datum) {
 }
 
 export function fmtBytes(n) {
-  if (!n) return '0 o'
-  const u = ['o', 'Ko', 'Mo', 'Go']
+  if (!n) return '0 B'
+  const u = ['B', 'KB', 'MB', 'GB']
   const i = Math.min(3, Math.floor(Math.log(n) / Math.log(1024)))
-  return `${(n / 1024 ** i).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ${u[i]}`
+  return `${(n / 1024 ** i).toLocaleString('en-US', { maximumFractionDigits: 1 })} ${u[i]}`
 }
 
 export function fmtValue(field, v) {
   if (v === null || v === undefined || v === '') return ''
   if (Array.isArray(v)) return v.join(', ')
-  if (typeof v === 'boolean') return v ? 'Oui' : 'Non'
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No'
   if (field?.type === 'number' || field?.type === 'integer') return fmtNumber(v, 4) + (field.unit ? ` ${field.unit}` : '')
   if (field?.type === 'date') return fmtDate(v)
   return String(v)
@@ -51,11 +51,11 @@ export function markdown(src) {
 }
 
 export const STATUS = {
-  draft: { label: 'Brouillon', color: 'grey', icon: 'mdi-pencil-outline' },
-  submitted: { label: 'En attente de validation', color: 'amber-darken-2', icon: 'mdi-timer-sand' },
-  published: { label: 'Publié', color: 'green-darken-1', icon: 'mdi-check-circle-outline' },
-  rejected: { label: 'À revoir', color: 'red-darken-1', icon: 'mdi-alert-circle-outline' },
+  draft: { label: 'Draft', color: 'grey', icon: 'mdi-pencil-outline' },
+  submitted: { label: 'Pending review', color: 'amber-darken-2', icon: 'mdi-timer-sand' },
+  published: { label: 'Published', color: 'green-darken-1', icon: 'mdi-check-circle-outline' },
+  rejected: { label: 'Needs revision', color: 'red-darken-1', icon: 'mdi-alert-circle-outline' },
 }
 
 export const LICENSES = ['CC-BY-4.0', 'CC-BY-SA-4.0', 'CC-BY-NC-4.0', 'CC-BY-NC-SA-4.0', 'CC-BY-ND-4.0', 'CC0-1.0', 'Etalab-2.0']
-export const LANGUAGES = [{ value: 'fr', title: 'Français' }, { value: 'en', title: 'Anglais' }]
+export const LANGUAGES = [{ value: 'fr', title: 'French' }, { value: 'en', title: 'English' }]

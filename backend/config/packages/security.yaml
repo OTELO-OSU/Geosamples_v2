@@ -15,7 +15,7 @@ security:
             stateless: true
             provider: app_user_provider
             jwt: ~
-    # Les autorisations fines (rôles par site) sont gérées par les voters
+    # Fine-grained authorization (per-site roles) is handled by voters.
     # App\Security\SiteVoter et App\Security\DatasetVoter.
     access_control:
         - { path: ^/api/admin, roles: ROLE_ADMIN }

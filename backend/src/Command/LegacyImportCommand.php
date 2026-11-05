@@ -20,43 +20,44 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
- * Reprise des données de l'ancienne application geo-samples (MongoDB / Elasticsearch).
+ * Import data from the legacy geo-samples application (MongoDB / Elasticsearch).
  *
- * Entrée : export JSON des documents (mongoexport --jsonArray, ou NDJSON, ou réponse
- * _search Elasticsearch). Structure attendue (cf. geo-samples/Docs/Organisation.md) :
+ * Input: JSON document export (mongoexport --jsonArray, NDJSON, or an Elasticsearch
+ * _search response). Expected structure (see geo-samples/Docs/Organisation.md):
  *   INTRO.TITLE, INTRO.DATA_DESCRIPTION, INTRO.KEYWORDS, INTRO.FILE_CREATOR[], INTRO.LANGUAGE,
  *   INTRO.LICENSE, INTRO.ACCESS_RIGHT, INTRO.SAMPLING_DATE, INTRO.SAMPLING_POINT[],
  *   INTRO.SUPPLEMENTARY_FIELDS{}, INTRO.MEASUREMENT[], DATA.FILES[]
  *
- * Regroupement : dans l'ancienne application, chaque échantillon était un document. Par
- * défaut, les documents de même titre, même description et mêmes auteurs sont regroupés en
- * UN jeu de données (un point par document). Les champs supplémentaires dont la valeur varie
- * à l'intérieur d'un groupe deviennent des champs « point ». --no-group désactive.
+ * Grouping: in the legacy application, each sample was a document. By default, documents
+ * with the same title, description, and authors are grouped into ONE dataset (one point per
+ * document). Additional fields whose values vary within a group become "point" fields.
+ * --no-group disables grouping.
  *
- * Aucun document n'est rejeté et AUCUN jeu n'est mis en brouillon : tous les jeux reçoivent le
- * statut de --status. Une valeur absente reste vide (rien n'est deviné) ; une valeur invalide est
- * conservée telle quelle sauf si le stockage l'interdit. Chaque champ absent / invalide / écarté
- * est listé, jeu par jeu, dans le rapport CSV (--report) et résumé dans reviewComment.
+ * No documents are rejected and NO datasets are set to draft: all datasets receive the
+ * --status value. Missing values remain empty (nothing is guessed); invalid values are
+ * retained unless storage disallows them. Every missing, invalid, or dropped field is listed
+ * per dataset in the CSV report (--report) and summarized in reviewComment.
  *
  *   php bin/console app:legacy:import nometal export.json --dry-run
  *   php bin/console app:legacy:import nometal export.json --create-fields --files-dir=/srv/geosamples/files --report=/tmp/nometal.csv
  */
-#[AsCommand(name: 'app:legacy:import', description: "Importe un export JSON de l'ancienne application geo-samples")]
+#[AsCommand(name: 'app:legacy:import', description: 'Import a JSON export from the legacy geo-samples application')]
 final class LegacyImportCommand extends Command
 {
-    private const IMPORT_GROUP = 'Reprise geo-samples';
+    private const IMPORT_GROUP = 'Legacy geo-samples import';
+    private const PREVIOUS_IMPORT_GROUP = 'Reprise geo-samples';
 
-    private const REPORT_HEADER = ['#', 'id_jeu', 'ids_origine', 'titre', 'document_origine', 'point', 'champ', 'type', 'probleme', 'valeur_origine'];
+    private const REPORT_HEADER = ['#', 'dataset_id', 'source_ids', 'title', 'source_document', 'point', 'field', 'type', 'issue', 'original_value'];
 
     private const KIND_LABELS = [
-        'missing' => 'manquant',   // absent dans la source, laissé vide
-        'invalid' => 'invalide',   // valeur incorrecte (conservée ou vidée selon le stockage)
-        'adjusted' => 'ajusté',    // valeur technique imposée par le stockage
-        'dropped' => 'écarté',     // élément non repris (point sans coordonnées, champ hors schéma…)
-        'failed' => 'échec',
+        'missing' => 'missing',   // absent from source, left empty
+        'invalid' => 'invalid',   // invalid value (retained or cleared depending on storage)
+        'adjusted' => 'adjusted', // technical adjustment required by storage
+        'dropped' => 'dropped',   // item not imported (point without coordinates, field outside schema...)
+        'failed' => 'failed',
     ];
 
-    /** Champs ajoutés « virtuellement » en --dry-run pour ne pas signaler de faux champs hors schéma. */
+    /** Fields added "virtually" during --dry-run to avoid false out-of-schema errors. */
     private array $virtualFields = [];
 
     public function __construct(
@@ -70,15 +71,15 @@ final class LegacyImportCommand extends Command
 
     protected function configure(): void
     {
-        $this->addArgument('site', InputArgument::REQUIRED, 'Slug du site cible')
-            ->addArgument('file', InputArgument::REQUIRED, 'Export JSON / NDJSON')
-            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Contrôle sans écriture')
-            ->addOption('create-fields', null, InputOption::VALUE_NONE, 'Crée en champs texte les SUPPLEMENTARY_FIELDS inconnus du site')
-            ->addOption('files-dir', null, InputOption::VALUE_REQUIRED, 'Répertoire des fichiers de l\'ancienne application (recherche par nom)')
-            ->addOption('status', null, InputOption::VALUE_REQUIRED, 'Statut de tous les jeux importés', Dataset::STATUS_PUBLISHED)
-            ->addOption('report', null, InputOption::VALUE_REQUIRED, 'Écrit en CSV, jeu par jeu, les champs manquants / invalides / écartés')
-            ->addOption('no-group', null, InputOption::VALUE_NONE, 'Un jeu par document (pas de regroupement par titre)')
-            ->addOption('truncate', null, InputOption::VALUE_NONE, 'DESTRUCTIF : vide la table des jeux de données (TRUNCATE … RESTART IDENTITY CASCADE, tous sites) avant l\'import');
+        $this->addArgument('site', InputArgument::REQUIRED, 'Target site slug')
+            ->addArgument('file', InputArgument::REQUIRED, 'JSON / NDJSON export')
+            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Validate without writing')
+            ->addOption('create-fields', null, InputOption::VALUE_NONE, 'Create text fields for SUPPLEMENTARY_FIELDS not defined on the site')
+            ->addOption('files-dir', null, InputOption::VALUE_REQUIRED, 'Legacy application file directory (look up by filename)')
+            ->addOption('status', null, InputOption::VALUE_REQUIRED, 'Status for all imported datasets', Dataset::STATUS_PUBLISHED)
+            ->addOption('report', null, InputOption::VALUE_REQUIRED, 'Write a CSV report of missing, invalid, or dropped fields for each dataset')
+            ->addOption('no-group', null, InputOption::VALUE_NONE, 'Create one dataset per document (do not group by title)')
+            ->addOption('truncate', null, InputOption::VALUE_NONE, 'DESTRUCTIVE: empty the dataset table (TRUNCATE … RESTART IDENTITY CASCADE, all sites) before import');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -90,30 +91,30 @@ final class LegacyImportCommand extends Command
 
         $site = $this->findSite($slug);
         if (!$site) {
-            $io->error('Site introuvable');
+            $io->error('Site not found');
             return Command::FAILURE;
         }
         $skipped = 0;
         $docs = $this->readDocs((string) $input->getArgument('file'), $skipped);
-        $io->writeln(\count($docs) . ' document(s) lu(s)');
+        $io->writeln(\count($docs) . ' document(s) read');
         if ($skipped) {
-            $io->warning($skipped . ' ligne(s) illisible(s) (JSON invalide) ignorée(s) dans le fichier d\'entrée');
+            $io->warning($skipped . ' unreadable line(s) (invalid JSON) skipped in the input file');
         }
 
         if ($input->getOption('truncate')) {
             $table = $this->em()->getClassMetadata(Dataset::class)->getTableName();
             if ($dry) {
-                $io->writeln(sprintf('Simulation : la table "%s" serait vidée (TRUNCATE … RESTART IDENTITY CASCADE)', $table));
+                $io->writeln(sprintf('Dry run: table "%s" would be emptied (TRUNCATE … RESTART IDENTITY CASCADE)', $table));
             } else {
                 $this->em()->getConnection()->executeStatement(sprintf('TRUNCATE "%s" RESTART IDENTITY CASCADE', $table));
                 $this->em()->clear();
                 $site = $this->findSite($slug) ?? $site;
-                $io->writeln(sprintf('Table "%s" vidée (et les tables qui en dépendent)', $table));
+                $io->writeln(sprintf('Table "%s" emptied (along with dependent tables)', $table));
             }
         }
 
         $groups = $this->groupDocs($docs, !$input->getOption('no-group'));
-        $io->writeln(sprintf('%d jeu(x) de données après regroupement (%d document(s))', \count($groups), \count($docs)));
+        $io->writeln(sprintf('%d dataset(s) after grouping (%d document(s))', \count($groups), \count($docs)));
 
         if ($input->getOption('create-fields')) {
             $this->createFields($site, $groups, $io, $dry);
@@ -121,11 +122,11 @@ final class LegacyImportCommand extends Command
         }
         $fileIndex = $input->getOption('files-dir') ? $this->indexFiles((string) $input->getOption('files-dir')) : [];
 
-        $seq = 0;          // numéro du jeu (repris dans le rapport)
+        $seq = 0;          // dataset number (included in the report)
         $ok = 0;
         $withIssues = 0;
         $errors = [];
-        $rows = [];        // lignes du rapport : une ligne par (jeu, champ en problème)
+        $rows = [];        // report rows: one row per (dataset, problematic field)
 
         foreach ($groups as $members) {
             $chunks = $this->chunkMembers($members);
@@ -139,7 +140,7 @@ final class LegacyImportCommand extends Command
                 try {
                     $payload = $this->groupPayload($chunk, $site);
                     if (\count($chunks) > 1) {
-                        $payload['title'] .= sprintf(' (partie %d/%d)', $ci + 1, \count($chunks));
+                        $payload['title'] .= sprintf(' (part %d/%d)', $ci + 1, \count($chunks));
                     }
                     $d = new Dataset($site, null);
                     $issues = $this->writer->apply($d, $payload, true);
@@ -169,9 +170,9 @@ final class LegacyImportCommand extends Command
                             $site = $this->recover($slug, $site);
                         }
                     }
-                    $errors[] = [$seq, $title, $msg . ($fallbackId ? " → jeu minimal créé (id $fallbackId), document d'origine dans reviewComment" : '')];
+                    $errors[] = [$seq, $title, $msg . ($fallbackId ? " → minimal dataset created (id $fallbackId); source document saved in reviewComment" : '')];
                     $rows[] = [
-                        $seq, $fallbackId ?? '', $idLabel, $title, $ids[0] ?? '', '', '(jeu complet)',
+                        $seq, $fallbackId ?? '', $idLabel, $title, $ids[0] ?? '', '', '(full dataset)',
                         self::KIND_LABELS['failed'], $msg, '',
                     ];
                     continue;
@@ -198,36 +199,36 @@ final class LegacyImportCommand extends Command
 
         if ($rows && ($path = $input->getOption('report'))) {
             $this->writeReport((string) $path, $rows);
-            $io->writeln(sprintf('Rapport : %d ligne(s) écrite(s) dans %s', \count($rows), $path));
+            $io->writeln(sprintf('Report: %d row(s) written to %s', \count($rows), $path));
         }
         if ($rows) {
-            $io->warning(sprintf('%d jeu(x) avec au moins un champ manquant, invalide ou écarté (détail : --report)', $withIssues));
-            // Synthèse : pour chaque champ, nombre de jeux concernés
+            $io->warning(sprintf('%d dataset(s) have at least one missing, invalid, or dropped field (details: --report)', $withIssues));
+            // Summary: number of affected datasets for each field.
             $perField = [];
             foreach ($rows as $r) {
                 $perField[$r[6]][$r[0]] = true;
             }
             uasort($perField, static fn ($a, $b) => \count($b) <=> \count($a));
             $io->table(
-                ['Champ', 'Jeux concernés'],
+                ['Field', 'Affected datasets'],
                 array_map(static fn ($k, $v) => [$k, \count($v)], array_keys(\array_slice($perField, 0, 25, true)), \array_slice($perField, 0, 25))
             );
             $io->table(
-                ['#', 'Titre', 'Point', 'Champ', 'Type', 'Problème'],
+                ['#', 'Title', 'Point', 'Field', 'Type', 'Issue'],
                 array_map(static fn ($r) => [$r[0], mb_substr((string) $r[3], 0, 40), $r[5], $r[6], $r[7], mb_substr((string) $r[8], 0, 70)], \array_slice($rows, 0, 10))
             );
         }
         if ($errors) {
-            $io->warning(\count($errors) . ' jeu(x) non importé(s) correctement (erreur inattendue)');
-            $io->table(['#', 'Titre', 'Erreurs'], \array_slice($errors, 0, 50));
+            $io->warning(\count($errors) . ' dataset(s) failed to import correctly (unexpected error)');
+            $io->table(['#', 'Title', 'Errors'], \array_slice($errors, 0, 50));
         }
         $io->success(sprintf(
-            '%d jeu(x) %s, dont %d avec des champs manquants ou invalides',
+            '%d dataset(s) %s, including %d with missing or invalid fields',
             $ok,
-            $dry ? 'importables (simulation)' : 'importés',
+            $dry ? 'importable (dry run)' : 'imported',
             $withIssues
         ));
-        // Ligne lue par migrate_all.sh pour le récapitulatif (drafts conservé à 0 pour compatibilité)
+        // Line read by migrate_all.sh for its summary (drafts remains 0 for compatibility).
         $io->writeln(sprintf(
             'IMPORT_RESULT read=%d imported=%d drafts=0 warnings=%d failed=%d dry=%d',
             \count($docs), $ok, $withIssues, \count($errors), $dry ? 1 : 0
@@ -253,7 +254,7 @@ final class LegacyImportCommand extends Command
     }
 
     // --------------------------------------------------------------------------------------
-    // Doctrine : le gestionnaire est repris à chaque fois (il est fermé après une erreur SQL)
+    // Retrieve the Doctrine manager each time (it is closed after an SQL error).
     // --------------------------------------------------------------------------------------
 
     private function em(): EntityManagerInterface
@@ -268,7 +269,7 @@ final class LegacyImportCommand extends Command
         return $this->em()->getRepository(Site::class)->findOneBy(['slug' => $slug]);
     }
 
-    /** Rouvre un gestionnaire fermé par une erreur SQL et recharge le site. */
+    /** Reopen a manager closed by an SQL error and reload the site. */
     private function recover(string $slug, Site $site): Site
     {
         if (!$this->em()->isOpen()) {
@@ -287,8 +288,8 @@ final class LegacyImportCommand extends Command
     }
 
     /**
-    * Dernier filet : si le mapping normal échoue, crée un jeu minimal et conserve les sections
-    * récupérables dans properties, sans recopier le document V1 complet dans reviewComment.
+    * Last resort: if normal mapping fails, create a minimal dataset and retain recoverable
+    * sections in properties without copying the entire V1 document into reviewComment.
     */
 
     private function persistFallback(Site $site, array $chunk, string $reason, string $status): mixed
@@ -296,7 +297,7 @@ final class LegacyImportCommand extends Command
         $d = new Dataset($site, null);
         $d->setTitle((string) ($chunk[0]['INTRO']['TITLE'] ?? ''));
         $d->setStatus($status);
-        $d->setReviewComment(mb_substr("Échec de la reprise automatique : $reason", 0, 20000));
+        $d->setReviewComment(mb_substr("Automatic import failed: $reason", 0, 20000));
 
         $properties = ['source_document_ids' => []];
         foreach ($chunk as $sourceDoc) {
@@ -321,10 +322,10 @@ final class LegacyImportCommand extends Command
     }
 
     // --------------------------------------------------------------------------------------
-    // Fichiers joints
+    // Attachments
     // --------------------------------------------------------------------------------------
 
-    /** @return array<string, array{kind:string,message:string,original:?string}> problèmes rencontrés */
+    /** @return array<string, array{kind:string,message:string,original:?string}> encountered issues */
     private function attachFiles(Dataset $d, array $chunk, array $fileIndex): array
     {
         $issues = [];
@@ -340,22 +341,22 @@ final class LegacyImportCommand extends Command
                 }
                 $attached[$name] = true;
                 if (!$fileIndex) {
-                    $issues["files.$name"] = ['kind' => 'missing', 'message' => "Fichier « $name » non attaché : --files-dir non fourni", 'original' => $url];
+                    $issues["files.$name"] = ['kind' => 'missing', 'message' => "File “$name” not attached: --files-dir was not provided", 'original' => $url];
                     continue;
                 }
                 $path = $fileIndex[$name] ?? $fileIndex[mb_strtolower($name)] ?? null;
                 if (!$path) {
-                    $issues["files.$name"] = ['kind' => 'missing', 'message' => "Fichier « $name » introuvable dans --files-dir", 'original' => $url];
+                    $issues["files.$name"] = ['kind' => 'missing', 'message' => "File “$name” not found in --files-dir", 'original' => $url];
                     continue;
                 }
                 $tmp = sys_get_temp_dir() . '/' . uniqid('imp_', true) . '_' . $name;
                 try {
                     if (!copy($path, $tmp)) {
-                        throw new \RuntimeException('copie impossible');
+                        throw new \RuntimeException('copy failed');
                     }
                     $this->storage->store($d, new UploadedFile($tmp, $name, null, null, true));
                 } catch (\Throwable $e) {
-                    $issues["files.$name"] = ['kind' => 'failed', 'message' => "Fichier « $name » non attaché : " . $e->getMessage(), 'original' => $url];
+                    $issues["files.$name"] = ['kind' => 'failed', 'message' => "File “$name” not attached: " . $e->getMessage(), 'original' => $url];
                 } finally {
                     if (is_file($tmp)) {
                         @unlink($tmp);
@@ -367,12 +368,12 @@ final class LegacyImportCommand extends Command
     }
 
     // --------------------------------------------------------------------------------------
-    // Rapport
+    // Report
     // --------------------------------------------------------------------------------------
 
     /**
-     * Transforme les problèmes du writer en lignes lisibles :
-     * [champ, document d'origine, point, type, message, valeur d'origine]
+     * Convert writer issues into readable rows:
+     * [field, source document, point, type, message, original value]
      * @return list<array{0:string,1:string,2:string,3:string,4:string,5:?string}>
      */
     private function issueList(array $issues, array $payload, array $chunk): array
@@ -397,7 +398,7 @@ final class LegacyImportCommand extends Command
         foreach ($payload['_unmapped'] ?? [] as $u) {
             $list[] = [
                 'SUPPLEMENTARY_FIELDS.' . $u['key'], $u['doc'], '', 'adjusted',
-                'Champ conservé dans les propriétés JSONB du jeu ; --create-fields permet aussi de le rendre configurable', $u['value'],
+                'Field retained in the dataset JSONB properties; --create-fields can also make it configurable', $u['value'],
             ];
         }
         return $list;
@@ -409,7 +410,7 @@ final class LegacyImportCommand extends Command
         if (!$fp) {
             return;
         }
-        fwrite($fp, "\xEF\xBB\xBF"); // BOM UTF-8 pour Excel
+        fwrite($fp, "\xEF\xBB\xBF"); // UTF-8 BOM for Excel.
         fputcsv($fp, self::REPORT_HEADER, ';', '"', '\\');
         foreach ($rows as $row) {
             fputcsv($fp, $row, ';', '"', '\\');
@@ -418,14 +419,14 @@ final class LegacyImportCommand extends Command
     }
 
     // --------------------------------------------------------------------------------------
-    // Lecture / regroupement
+    // Reading / grouping
     // --------------------------------------------------------------------------------------
 
     private function readDocs(string $file, int &$skipped): array
     {
         $raw = file_get_contents($file);
         if ($raw === false) {
-            throw new \RuntimeException("Fichier illisible : $file");
+            throw new \RuntimeException("Unable to read file: $file");
         }
         $skipped = 0;
         $json = json_decode($raw, true);
@@ -436,7 +437,7 @@ final class LegacyImportCommand extends Command
             } elseif ($isList) {
                 $docs = $json;
             } else {
-                $docs = [$json]; // un seul document
+                $docs = [$json]; // single document
             }
         } else {
             $docs = [];
@@ -467,8 +468,8 @@ final class LegacyImportCommand extends Command
     }
 
     /**
-     * Regroupe les documents de même titre + description + auteurs (ordre d'apparition conservé).
-     * Un document sans titre reste seul.
+     * Group documents with the same title, description, and authors (preserving appearance order).
+     * Documents without a title remain separate.
      * @return array<int, array<int, array<string, mixed>>>
      */
     private function groupDocs(array $docs, bool $group): array
@@ -498,8 +499,8 @@ final class LegacyImportCommand extends Command
     }
 
     /**
-     * Découpe un groupe en jeux de DatasetWriter::MAX_POINTS points maximum
-     * (on compte les points, pas les documents : un document peut en contenir plusieurs).
+     * Split a group into datasets with at most DatasetWriter::MAX_POINTS points
+     * (counting points, not documents: a document may contain several).
      * @return array<int, array<int, array<string, mixed>>>
      */
     private function chunkMembers(array $members): array
@@ -523,7 +524,7 @@ final class LegacyImportCommand extends Command
         return $chunks;
     }
 
-    /** Payload d'un jeu : métadonnées du premier document, points de tous les documents du groupe. */
+    /** Dataset payload: metadata from the first document, points from all documents in the group. */
     private function groupPayload(array $members, Site $site): array
     {
         $payload = $this->toPayload($members[0], $site);
@@ -555,12 +556,12 @@ final class LegacyImportCommand extends Command
         }
         $payload['keywords'] = array_values(array_unique($keywords));
         $payload['authors'] = array_values($authors);
-        // La période est déduite des dates des points par le writer.
+        // The writer derives the period from the points' dates.
         $payload['temporalStart'] = null;
         return $payload;
     }
 
-    /** Un tableau de valeurs devient un texte ; les scalaires sont inchangés. */
+    /** Convert an array of values to text; leave scalars unchanged. */
     private function scalarize(mixed $v): mixed
     {
         if (!\is_array($v)) {
@@ -580,7 +581,7 @@ final class LegacyImportCommand extends Command
         $first = static fn ($v) => \is_array($v) ? (reset($v) ?: null) : $v;
         $unmapped = [];
 
-        // Mots-clés : uniquement ceux de la source (aucun repli, rien n'est deviné).
+        // Keywords: use only values from the source (no fallback or guessing).
         $keywords = [];
         foreach ((array) ($in['KEYWORDS'] ?? $in['KEYWORD'] ?? []) as $k) {
             $keywords[] = \is_array($k) ? ($k['NAME'] ?? reset($k)) : $k;
@@ -609,7 +610,7 @@ final class LegacyImportCommand extends Command
             }
         }
 
-        // Champs supplémentaires : niveau jeu ou niveau point selon la définition du champ.
+        // Additional fields: dataset-level or point-level according to the field definition.
         $props = [];
         $pointProps = [];
         $props['source_document_ids'] = $docId !== '' ? [$docId] : [];
@@ -642,7 +643,7 @@ final class LegacyImportCommand extends Command
             }
         }
 
-        // Per-sample values go on the point, so each ladder entry keeps its own
+        // Per-sample values belong to the point, so each ladder entry keeps its own values.
         $hole = $first($sf['HOLEID_POINT'] ?? null);
         if (\is_array($hole)) {
             $holeId = trim((string) ($hole['HOLEID'] ?? ''));
@@ -690,7 +691,7 @@ final class LegacyImportCommand extends Command
         $points = [];
         foreach ((array) ($in['SAMPLING_POINT'] ?? []) as $p) {
             if (!\is_array($p)) {
-                $p = ['NAME' => \is_scalar($p) ? (string) $p : null]; // sera signalé : coordonnées absentes
+                $p = ['NAME' => \is_scalar($p) ? (string) $p : null]; // will be reported: coordinates are missing
             }
             $rawLon = $p['LONGITUDE'] ?? null;
             $rawLat = $p['LATITUDE'] ?? null;
@@ -713,7 +714,7 @@ final class LegacyImportCommand extends Command
 
             $points[] = [
                 'name' => $p['NAME'] ?? $p['ABBREVIATION'] ?? null,
-                // valeur d'origine conservée si elle n'est pas numérique (le writer la signale)
+                // Retain the original value if it is not numeric (the writer reports it).
                 'longitude' => $lon ?? $rawLon, 'latitude' => $lat ?? $rawLat,
                 'elevation' => $this->num($rawElev) ?? $rawElev,
                 'observedAt' => $date,
@@ -723,8 +724,8 @@ final class LegacyImportCommand extends Command
             ] + $src;
         }
 
-        // Langue : FRENCH/ENGLISH et codes ISO sont convertis ; toute autre valeur est transmise
-        // telle quelle (le writer la signale avec sa valeur d'origine au lieu de la perdre).
+        // Convert FRENCH/ENGLISH and ISO codes; pass other values through unchanged
+        // (the writer reports them with their original values rather than discarding them).
         $langRaw = trim((string) ($in['LANGUAGE'] ?? ''));
         $language = null;
         if ($langRaw !== '') {
@@ -732,7 +733,7 @@ final class LegacyImportCommand extends Command
                 ?? (preg_match('/^[A-Za-z]{2,3}$/', $langRaw) ? mb_strtolower($langRaw) : $langRaw);
         }
 
-        // Droit d'accès : absent → null (le writer le signale), sinon open / restricted.
+        // Access right: absent → null (reported by the writer), otherwise open / restricted.
         $ar = $in['ACCESS_RIGHT'] ?? null;
         $accessRight = ($ar === null || trim((string) $ar) === '')
             ? null
@@ -843,9 +844,9 @@ final class LegacyImportCommand extends Command
     }
 
     /**
-     * Crée les champs manquants. Un champ dont la valeur varie à l'intérieur d'un groupe
-     * (ou qui n'est pas renseigné pour tous ses documents) est créé au niveau du point ;
-     * les champs d'une reprise précédente sont promus au niveau du point si besoin.
+     * Create missing fields. A field whose value varies within a group (or is not set
+     * for every document) is created at point level; fields from a previous import are
+     * promoted to point level when needed.
      */
     private function createFields(Site $site, array $groups, SymfonyStyle $io, bool $dry): void
     {
@@ -892,29 +893,34 @@ final class LegacyImportCommand extends Command
 
         $defs = $site->getFields();
         $promoted = [];
+        $relabelled = false;
         foreach ($defs as &$def) {
-            if (($def['group'] ?? null) === self::IMPORT_GROUP && ($def['scope'] ?? 'dataset') === 'dataset' && isset($varies[$def['key']])) {
-                $def['scope'] = 'point';
-                $promoted[] = $def['key'];
+            if (\in_array($def['group'] ?? null, [self::IMPORT_GROUP, self::PREVIOUS_IMPORT_GROUP], true)) {
+                $relabelled = $relabelled || $def['group'] !== self::IMPORT_GROUP;
+                $def['group'] = self::IMPORT_GROUP;
+                if (($def['scope'] ?? 'dataset') === 'dataset' && isset($varies[$def['key']])) {
+                    $def['scope'] = 'point';
+                    $promoted[] = $def['key'];
+                }
             }
         }
         unset($def);
 
-        if (!$new && !$promoted) {
+        if (!$new && !$promoted && !$relabelled) {
             return;
         }
         if ($new) {
-            $io->writeln('Champs créés : ' . implode(', ', array_keys($new)));
+            $io->writeln('Fields created: ' . implode(', ', array_keys($new)));
         }
         if ($promoted) {
-            $io->writeln('Champs passés au niveau du point : ' . implode(', ', $promoted));
+            $io->writeln('Fields promoted to point level: ' . implode(', ', $promoted));
         }
         $point = array_keys(array_filter($new, static fn ($f) => $f['scope'] === 'point'));
         if ($point) {
-            $io->writeln('Dont champs « point » (valeurs différentes selon l\'échantillon) : ' . implode(', ', $point));
+            $io->writeln('Including point fields (values differ by sample): ' . implode(', ', $point));
         }
         if ($dry) {
-            // Simulation : on fait comme si les champs existaient pour ne pas signaler de faux « hors schéma ».
+            // Dry run: treat these fields as existing to avoid false out-of-schema errors.
             $this->virtualFields = $new;
             foreach ($defs as $def) {
                 if (\in_array($def['key'] ?? null, $promoted, true)) {
@@ -937,7 +943,7 @@ final class LegacyImportCommand extends Command
         return $idx;
     }
 
-    /** Clé de champ à partir du nom d'origine. Une clé réservée est préfixée (« src_ ») au lieu d'être perdue. */
+    /** Build a field key from its source name. Prefix reserved keys with "src_" rather than dropping them. */
     private function key(string $k): string
     {
         $k = preg_replace('/[^a-z0-9]+/', '_', mb_strtolower(iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $k) ?: $k));
@@ -955,7 +961,7 @@ final class LegacyImportCommand extends Command
         return is_numeric($v) ? (float) $v : null;
     }
 
-    /** Lambert-93 (RGF93, GRS80) → WGS84 ; écart RGF93/WGS84 négligeable à cette échelle. */
+    /** Lambert-93 (RGF93, GRS80) → WGS84; RGF93/WGS84 difference is negligible at this scale. */
     public static function lambert93ToWgs84(float $x, float $y): array
     {
         $n = 0.7256077650532670; $c = 11754255.426096; $xs = 700000.0; $ys = 12655612.049876;

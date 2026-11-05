@@ -1,4 +1,4 @@
-<template><div ref="el" class="gs-minimap" role="img" :aria-label="`Localisation de ${points.length} point(s)`" /></template>
+<template><div ref="el" class="gs-minimap" role="img" :aria-label="`Location of ${points.length} point(s)`" /></template>
 
 <script setup>
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'

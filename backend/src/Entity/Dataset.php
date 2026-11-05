@@ -10,11 +10,11 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Jeu de données valorisé sur un site (pas encore publié sur ORDaR, ou lié à sa
- * publication ORDaR via $doi / $ordarUrl une fois publié).
+ * Dataset managed on a site (not yet published on ORDaR, or linked to its
+ * ORDaR publication through $doi / $ordarUrl once published).
  *
- * Les métadonnées communes sont des colonnes ; les champs spécifiques au site
- * sont dans $properties (JSONB), validés contre Site::$fields.
+ * Common metadata is stored in columns; site-specific fields are stored in
+ * $properties (JSONB), validated against Site::$fields.
  */
 #[ORM\Entity(repositoryClass: DatasetRepository::class)]
 #[ORM\Index(name: 'idx_dataset_site_status', columns: ['site_id', 'status'])]
@@ -76,18 +76,18 @@ class Dataset
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $reviewComment = null;
 
-    /** Début de la période couverte (ou date unique) */
+    /** Start of the covered period (or the single date). */
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $temporalStart = null;
 
-    /** Fin de la période couverte (null = date ponctuelle) */
+    /** End of the covered period (null = a single date). */
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $temporalEnd = null;
 
     #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
     private array $properties = [];
 
-    /** DOI ORDaR une fois le jeu publié dans l'entrepôt */
+    /** ORDaR DOI once the dataset is published in the repository. */
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $doi = null;
 

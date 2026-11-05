@@ -57,7 +57,7 @@
       <transition name="gs-slide">
         <aside v-if="selected" class="gs-mv__preview" aria-label="Dataset preview">
           <div class="gs-mv__preview-bar">
-            <v-btn variant="text" size="small" prepend-icon="mdi-open-in-new" :to="`/jeux/${selected}`">Open details</v-btn>
+            <v-btn variant="text" size="small" prepend-icon="mdi-open-in-new" :to="`/datasets/${selected}`">Open details</v-btn>
             <v-spacer />
             <v-btn icon="mdi-close" variant="text" size="small" aria-label="Close preview" @click="select(null)" />
           </div>
@@ -95,7 +95,7 @@ const router = useRouter()
 const site = computed(() => siteStore.site)
 
 const filters = ref(fromQuery(route.query, site.value.fields))
-const selected = ref(route.query.jeu || null)
+const selected = ref(route.query.dataset || route.query.jeu || null)
 const preview = ref(null)
 const facets = ref(null)
 const list = ref({ total: 0, items: [], perPage: 20 })
@@ -124,6 +124,7 @@ let fitted = false
 // Keep the URL in sync (shareable links).
 watch([params, selected], () => {
   const q = { ...params.value }
+  delete q.jeu
   if (selected.value) q.jeu = selected.value
   router.replace({ query: q })
 })
@@ -179,7 +180,7 @@ async function loadPreview() {
     if (id === selected.value) preview.value = d
   } catch (e) {
     if (id !== selected.value) return
-    ui.error(errorMessage(e, 'Jeu introuvable'))
+    ui.error(errorMessage(e, 'Dataset not found'))
     selected.value = null
   }
 }

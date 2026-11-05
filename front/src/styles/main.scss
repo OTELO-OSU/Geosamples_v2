@@ -1,4 +1,4 @@
-/* Typographie : Archivo (titres, chiffres de la carte) + IBM Plex Sans (texte). */
+/* Typography: Archivo (headings, map numbers) + IBM Plex Sans (body text). */
 :root {
   --gs-font-display: 'Archivo', 'IBM Plex Sans', system-ui, sans-serif;
   --gs-font-body: 'IBM Plex Sans', system-ui, sans-serif;
@@ -38,7 +38,7 @@ h3 { font-size: 1.08rem; font-weight: 600; line-height: 1.3; }
   border-radius: 10px;
 }
 
-/* Liste de définitions des métadonnées */
+/* Metadata definition list */
 .gs-meta { display: grid; grid-template-columns: minmax(130px, 34%) 1fr; gap: 6px 16px; margin: 0; }
 .gs-meta dt { color: rgb(var(--v-theme-muted)); font-size: 0.86rem; }
 .gs-meta dd { margin: 0; overflow-wrap: anywhere; }
@@ -49,5 +49,5 @@ h3 { font-size: 1.08rem; font-weight: 600; line-height: 1.3; }
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
 
-/* Boutons et onglets : casse normale, sans espacement étendu */
+/* Buttons and tabs: normal case, no extra letter spacing */
 .v-btn, .v-tab { letter-spacing: 0.005em !important; text-transform: none !important; font-weight: 500; }

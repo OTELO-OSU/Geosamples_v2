@@ -9,18 +9,18 @@ final class DatasetApiTest extends ApiTestCase
     private function payload(array $over = []): array
     {
         return array_replace([
-            'title' => 'Jeu de test', 'keywords' => ['test'], 'properties' => ['lithology' => 'Granite'],
+            'title' => 'Test dataset', 'keywords' => ['test'], 'properties' => ['lithology' => 'Granite'],
             'points' => [['name' => 'P1', 'longitude' => 6.18, 'latitude' => 48.69, 'elevation' => 210, 'observedAt' => '2024-05-17', 'properties' => ['temp' => '12,4']]],
         ], $over);
     }
 
     public function testPublicSeesOnlyPublishedDatasets(): void
     {
-        $this->seedDataset('Publié', Dataset::STATUS_PUBLISHED, 6.1, 48.7);
-        $this->seedDataset('Brouillon', Dataset::STATUS_DRAFT, 6.2, 48.6);
+        $this->seedDataset('Published', Dataset::STATUS_PUBLISHED, 6.1, 48.7);
+        $this->seedDataset('Draft', Dataset::STATUS_DRAFT, 6.2, 48.6);
         $list = $this->api('GET', '/api/sites/demo/datasets');
         self::assertSame(1, $list['total']);
-        self::assertSame('Publié', $list['items'][0]['title']);
+        self::assertSame('Published', $list['items'][0]['title']);
         $map = $this->api('GET', '/api/sites/demo/map?zoom=8');
         self::assertSame('points', $map['mode']);
         self::assertCount(1, $map['points']);
@@ -49,8 +49,8 @@ final class DatasetApiTest extends ApiTestCase
         $r = $this->api('POST', "/api/sites/demo/datasets/{$d['uuid']}/status", ['action' => 'publish'], $manager);
         self::assertSame('published', $r['status']);
 
-        // Un contributeur qui modifie un jeu publié le renvoie en validation
-        $r = $this->api('PUT', "/api/sites/demo/datasets/{$d['uuid']}", $this->payload(['title' => 'Modifié']), $token);
+        // A contributor editing a published dataset sends it back for review.
+        $r = $this->api('PUT', "/api/sites/demo/datasets/{$d['uuid']}", $this->payload(['title' => 'Updated']), $token);
         self::assertSame('submitted', $r['status']);
     }
 
@@ -69,20 +69,20 @@ final class DatasetApiTest extends ApiTestCase
         $token = $this->login('autre@test.fr');
         $this->api('POST', '/api/sites/demo/datasets', $this->payload(), $token);
         self::assertResponseStatusCodeSame(403);
-        $this->api('PUT', '/api/sites/demo', ['title' => 'Piraté'], $token);
+        $this->api('PUT', '/api/sites/demo', ['title' => 'Hacked'], $token);
         self::assertResponseStatusCodeSame(403);
         $this->api('GET', '/api/admin/users', null, $token);
         self::assertResponseStatusCodeSame(403);
-        // … mais peut demander à contribuer
-        $m = $this->api('POST', '/api/sites/demo/join', ['message' => 'Bonjour'], $token);
+        // ... but can request to contribute.
+        $m = $this->api('POST', '/api/sites/demo/join', ['message' => 'Hello'], $token);
         self::assertSame('pending', $m['status']);
     }
 
     public function testFiltersAndFacets(): void
     {
         $this->seedDataset('A', Dataset::STATUS_PUBLISHED, 6.1, 48.7, 'Granite');
-        $this->seedDataset('B', Dataset::STATUS_PUBLISHED, 7.1, 47.7, 'Grès');
-        self::assertSame(1, $this->api('GET', '/api/sites/demo/datasets?f%5Blithology%5D=Gr%C3%A8s')['total']);
+        $this->seedDataset('B', Dataset::STATUS_PUBLISHED, 7.1, 47.7, 'Sandstone');
+        self::assertSame(1, $this->api('GET', '/api/sites/demo/datasets?f%5Blithology%5D=Sandstone')['total']);
         self::assertSame(1, $this->api('GET', '/api/sites/demo/datasets?bbox=6,48,6.5,49')['total']);
         self::assertSame(0, $this->api('GET', '/api/sites/demo/datasets?from=2021')['total']);
         $f = $this->api('GET', '/api/sites/demo/facets');
@@ -94,9 +94,9 @@ final class DatasetApiTest extends ApiTestCase
     {
         $token = $this->login('user@test.fr');
         $rows = [
-            ['dataset_ref' => 'S1', 'title' => 'Station 1', 'keywords' => 'eau', 'lithology' => 'Granite', 'longitude' => '6.1', 'latitude' => '48.7', 'observed_at' => '2023-01', 'temp' => '4'],
+            ['dataset_ref' => 'S1', 'title' => 'Station 1', 'keywords' => 'water', 'lithology' => 'Granite', 'longitude' => '6.1', 'latitude' => '48.7', 'observed_at' => '2023-01', 'temp' => '4'],
             ['dataset_ref' => 'S1', 'longitude' => '6.1', 'latitude' => '48.7', 'observed_at' => '2023-02', 'temp' => '5'],
-            ['title' => 'Mauvais', 'keywords' => 'x', 'lithology' => 'Marbre', 'longitude' => '6', 'latitude' => '48'],
+            ['title' => 'Invalid', 'keywords' => 'x', 'lithology' => 'Marble', 'longitude' => '6', 'latitude' => '48'],
         ];
         $p = $this->api('POST', '/api/sites/demo/import/preview', ['rows' => $rows], $token);
         self::assertSame(1, $p['valid']);
@@ -112,11 +112,11 @@ final class DatasetApiTest extends ApiTestCase
         self::assertCount(2, $exp['rows']);
         self::assertSame($uuid, $exp['rows'][0]['dataset_id']);
 
-        $exp['rows'][0]['title'] = 'Station 1 corrigée';
+        $exp['rows'][0]['title'] = 'Station 1 corrected';
         $res = $this->api('POST', '/api/sites/demo/import/commit', ['rows' => $exp['rows']], $token);
         self::assertSame([$uuid], $res['updated']);
         $d = $this->api('GET', "/api/sites/demo/datasets/$uuid", null, $token);
-        self::assertSame('Station 1 corrigée', $d['title']);
+        self::assertSame('Station 1 corrected', $d['title']);
         self::assertCount(2, $d['points']);
     }
 }

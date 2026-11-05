@@ -9,8 +9,8 @@ try {
   if (s === 'light' || s === 'dark') saved = s
 } catch { /* stockage indisponible */ }
 
-// Neutres communs à tous les sites ; primary / secondary / accent sont remplacés
-// par le thème du site au démarrage (cf. applySiteTheme).
+// Neutrals shared by all sites; primary / secondary / accent are replaced
+// by the site theme at startup (see applySiteTheme).
 export default createVuetify({
   locale: { locale: 'fr', messages: { fr } },
   icons: { defaultSet: 'mdi', aliases, sets: { mdi } },
@@ -49,7 +49,7 @@ export default createVuetify({
   },
 })
 
-/** Applique les couleurs du site (et une variante éclaircie pour le mode sombre). */
+/** Apply the site colors (and a lightened variant for dark mode). */
 export function applySiteTheme(vuetify, theme) {
   if (!theme) return
   const t = (vuetify.theme ?? vuetify).themes.value

@@ -17,14 +17,14 @@ use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * POST /api/auth/login                 connexion par compte local {email, password}
- * POST /api/auth/refresh               nouveau JWT depuis le cookie de session (rotation)
- * POST /api/auth/logout                fin de session
- * GET  /api/auth/federation/login      redirection vers le fournisseur OIDC (RENATER via Keycloak)
- * GET  /api/auth/federation/callback   retour OIDC
- * GET  /api/auth/orcid/login|callback  connexion ORCID
- * GET  /api/auth/shibboleth            connexion par en-têtes mod_shib / CAS
- * GET  /api/me  · PATCH /api/me        profil
+ * POST /api/auth/login                 local account sign-in {email, password}
+ * POST /api/auth/refresh               new JWT from the session cookie (rotation)
+ * POST /api/auth/logout                end session
+ * GET  /api/auth/federation/login      redirect to the OIDC provider (RENATER via Keycloak)
+ * GET  /api/auth/federation/callback   OIDC callback
+ * GET  /api/auth/orcid/login|callback  ORCID sign-in
+ * GET  /api/auth/shibboleth            sign-in using mod_shib / CAS headers
+ * GET  /api/me  · PATCH /api/me        profile
  */
 final class AuthController extends ApiController
 {
@@ -48,16 +48,16 @@ final class AuthController extends ApiController
 
         foreach ([$this->loginIpLimiter->create($request->getClientIp() ?? 'unknown'), $this->loginAccountLimiter->create($email)] as $limiter) {
             if (!$limiter->consume()->isAccepted()) {
-                throw new ApiException('Trop de tentatives, réessayez plus tard', 429);
+                throw new ApiException('Too many attempts; try again later', 429);
             }
         }
         $user = $email !== '' ? $this->users->findOneByEmail($email) : null;
         if (!$user || !$user->getPassword() || !$this->hasher->isPasswordValid($user, $password)) {
             $this->logger->notice('Failed login', ['email' => $email, 'ip' => $request->getClientIp()]);
-            throw new ApiException('Identifiants incorrects', 401);
+            throw new ApiException('Invalid credentials', 401);
         }
         if (!$user->isActive()) {
-            throw ApiException::forbidden('Compte désactivé');
+            throw ApiException::forbidden('Account disabled');
         }
         return $this->auth->sessionResponse($user, $this->auth->issueRefreshCookie($user));
     }
@@ -94,7 +94,7 @@ final class AuthController extends ApiController
             $resp = new RedirectResponse('/?' . http_build_query(['auth' => 'error', 'message' => $e->getMessage()]));
         } catch (\Throwable $e) {
             $this->logger->error('OIDC callback error: ' . $e->getMessage());
-            $resp = new RedirectResponse('/?' . http_build_query(['auth' => 'error', 'message' => 'Échec de la connexion fédérée']));
+            $resp = new RedirectResponse('/?' . http_build_query(['auth' => 'error', 'message' => 'Federated sign-in failed']));
         }
         $this->federation->clearStateCookie($resp);
         return $resp;
@@ -117,7 +117,7 @@ final class AuthController extends ApiController
             $resp = new RedirectResponse('/?' . http_build_query(['auth' => 'error', 'message' => $e->getMessage()]));
         } catch (\Throwable $e) {
             $this->logger->error('ORCID callback error: ' . $e->getMessage());
-            $resp = new RedirectResponse('/?' . http_build_query(['auth' => 'error', 'message' => 'Échec de la connexion ORCID']));
+            $resp = new RedirectResponse('/?' . http_build_query(['auth' => 'error', 'message' => 'ORCID sign-in failed']));
         }
         $this->federation->clearOrcidStateCookie($resp);
         return $resp;
@@ -154,19 +154,19 @@ final class AuthController extends ApiController
         if (\array_key_exists('orcid', $d)) {
             $o = preg_replace('#^https?://orcid\.org/#', '', trim((string) $d['orcid']));
             if ($o !== '' && !preg_match('/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/', $o)) {
-                throw ApiException::validation(['orcid' => 'ORCID invalide']);
+                throw ApiException::validation(['orcid' => 'Invalid ORCID iD']);
             }
             $user->setOrcid($o);
         }
         if (!empty($d['newPassword'])) {
             if (!$user->getPassword()) {
-                throw new ApiException('Les comptes fédérés n\'ont pas de mot de passe local');
+                throw new ApiException('Federated accounts do not have a local password');
             }
             if (!$this->hasher->isPasswordValid($user, (string) ($d['currentPassword'] ?? ''))) {
-                throw ApiException::validation(['currentPassword' => 'Mot de passe actuel incorrect']);
+                throw ApiException::validation(['currentPassword' => 'Incorrect current password']);
             }
             if (mb_strlen((string) $d['newPassword']) < 12) {
-                throw ApiException::validation(['newPassword' => '12 caractères minimum']);
+                throw ApiException::validation(['newPassword' => 'Password must be at least 12 characters']);
             }
             $user->setPassword($this->hasher->hashPassword($user, (string) $d['newPassword']));
         }

@@ -2,11 +2,11 @@
   <div>
     <v-list v-if="existing.length || queue.length" density="compact" class="bg-transparent mb-2">
       <v-list-item v-for="f in existing" :key="'e' + f.id" :title="f.name" :subtitle="`${kindLabel(f.kind)} · ${fmtBytes(f.size)}`" :prepend-icon="f.kind === 'picture' ? 'mdi-image-outline' : 'mdi-file-outline'">
-        <template #append><v-btn icon="mdi-delete-outline" variant="text" size="small" :aria-label="`Supprimer ${f.name}`" @click="$emit('delete', f)" /></template>
+        <template #append><v-btn icon="mdi-delete-outline" variant="text" size="small" :aria-label="`Delete ${f.name}`" @click="$emit('delete', f)" /></template>
       </v-list-item>
       <v-list-item v-for="(f, i) in queue" :key="'q' + i" :title="f.file.name" :subtitle="`${kindLabel(f.kind)} · ${fmtBytes(f.file.size)} · will be uploaded when saved`" prepend-icon="mdi-upload-outline">
         <template #append>
-          <v-select v-model="f.kind" :items="kinds" density="compact" hide-details style="width: 150px" variant="plain" aria-label="Type de fichier" />
+          <v-select v-model="f.kind" :items="kinds" density="compact" hide-details style="width: 150px" variant="plain" aria-label="File type" />
           <v-btn icon="mdi-close" variant="text" size="small" aria-label="Retirer" @click="queue.splice(i, 1)" />
         </template>
       </v-list-item>

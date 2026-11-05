@@ -12,7 +12,7 @@ use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
-/** Base de test : schéma recréé, un site, trois comptes (admin, responsable, utilisateur). */
+/** Test base: recreated schema, one site, and three accounts (admin, manager, contributor). */
 abstract class ApiTestCase extends WebTestCase
 {
     protected KernelBrowser $client;
@@ -32,7 +32,7 @@ abstract class ApiTestCase extends WebTestCase
         $hasher = static::getContainer()->get('security.user_password_hasher');
         $mk = function (string $email, bool $admin = false) use ($hasher) {
             $u = (new User($email))->setFirstname('T')->setLastname($email)->setAdmin($admin);
-            $u->setPassword($hasher->hashPassword($u, 'motdepasse-test'));
+            $u->setPassword($hasher->hashPassword($u, 'test-password'));
             $this->em->persist($u);
             return $u;
         };
@@ -41,9 +41,9 @@ abstract class ApiTestCase extends WebTestCase
         $user = $mk('user@test.fr');
         $mk('autre@test.fr');
 
-        $this->site = (new Site('demo', 'Démo'))->setHostnames(['demo.test'])->setFields([
-            ['key' => 'lithology', 'label' => 'Lithologie', 'type' => 'select', 'options' => ['Granite', 'Grès'], 'required' => true, 'filter' => 'select', 'scope' => 'dataset'],
-            ['key' => 'temp', 'label' => 'Température', 'type' => 'number', 'filter' => 'range', 'scope' => 'point'],
+        $this->site = (new Site('demo', 'Demo'))->setHostnames(['demo.test'])->setFields([
+            ['key' => 'lithology', 'label' => 'Lithology', 'type' => 'select', 'options' => ['Granite', 'Sandstone'], 'required' => true, 'filter' => 'select', 'scope' => 'dataset'],
+            ['key' => 'temp', 'label' => 'Temperature', 'type' => 'number', 'filter' => 'range', 'scope' => 'point'],
         ]);
         $this->em->persist($this->site);
         $this->em->persist(new SiteMembership($this->site, $resp, SiteMembership::ROLE_MANAGER));
@@ -62,7 +62,7 @@ abstract class ApiTestCase extends WebTestCase
 
     protected function login(string $email): string
     {
-        $this->client->request('POST', '/api/auth/login', [], [], ['CONTENT_TYPE' => 'application/json'], json_encode(['email' => $email, 'password' => 'motdepasse-test']));
+        $this->client->request('POST', '/api/auth/login', [], [], ['CONTENT_TYPE' => 'application/json'], json_encode(['email' => $email, 'password' => 'test-password']));
         self::assertResponseIsSuccessful();
         return json_decode($this->client->getResponse()->getContent(), true)['token'];
     }

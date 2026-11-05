@@ -7,11 +7,11 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * Un site de valorisation (ex. nometal, orne).
+ * A data management site (e.g. nometal, orne).
  *
- * Toute la personnalisation d'un site est portée par cette entité : textes,
- * thème, emprise et fonds de carte, champs spécifiques du formulaire, filtres,
- * template d'import. Créer un site = insérer une ligne, sans redéploiement.
+ * All site customization is stored in this entity: text, theme, map extent and
+ * basemaps, custom form fields, filters, and import template. Creating a site
+ * only requires inserting a row; no redeployment is needed.
  */
 #[ORM\Entity(repositoryClass: SiteRepository::class)]
 #[ORM\HasLifecycleCallbacks]
@@ -45,7 +45,7 @@ class Site
     #[ORM\Column(length: 64, unique: true)]
     private string $slug;
 
-    /** @var list<string> noms d'hôte servant ce site (ex. nometal.otelo.univ-lorraine.fr) */
+    /** @var list<string> hostnames serving this site (e.g. nometal.otelo.univ-lorraine.fr) */
     #[ORM\Column(type: Types::JSON)]
     private array $hostnames = [];
 
@@ -55,11 +55,11 @@ class Site
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $subtitle = null;
 
-    /** Présentation courte (markdown) affichée sur la carte */
+    /** Short description (markdown) displayed on the map. */
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $description = null;
 
-    /** Page "À propos" (markdown) */
+    /** "About" page (markdown). */
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $about = null;
 
@@ -73,11 +73,11 @@ class Site
     private array $map = self::DEFAULT_MAP;
 
     /**
-     * Champs spécifiques au site. Chaque entrée :
+     * Site-specific fields. Each entry:
      * {key, label, type, required, options[], unit, help, group, filter, popup, scope}
      * type   : text|textarea|number|integer|date|select|multiselect|boolean|url
-     * filter : null|"select"|"range"|"text"   (exposé dans le panneau de filtres)
-     * scope  : "dataset" (défaut) ou "point" (valeur par point de prélèvement)
+     * filter: null|"select"|"range"|"text" (shown in the filter panel)
+     * scope: "dataset" (default) or "point" (value per sampling point)
      */
     #[ORM\Column(type: Types::JSON)]
     private array $fields = [];
@@ -91,7 +91,7 @@ class Site
     #[ORM\Column(type: Types::JSON)]
     private array $settings = self::DEFAULT_SETTINGS;
 
-    /** Visible dans le portail et accessible publiquement */
+    /** Visible in the portal and publicly accessible. */
     #[ORM\Column(options: ['default' => true])]
     private bool $published = true;
 
@@ -149,7 +149,7 @@ class Site
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
     public function getUpdatedAt(): \DateTimeImmutable { return $this->updatedAt; }
 
-    /** @return array<string, array> champs indexés par clé */
+    /** @return array<string, array> fields indexed by key */
     public function getFieldMap(): array
     {
         $out = [];

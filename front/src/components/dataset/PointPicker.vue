@@ -3,13 +3,13 @@
     <div ref="el" class="gs-picker__map" />
     <p class="gs-picker__hint">
       <v-icon size="16">mdi-cursor-default-click-outline</v-icon>
-      Cliquez sur la carte pour placer <strong>{{ activeLabel }}</strong>.
+      Click the map to place <strong>{{ activeLabel }}</strong>.
     </p>
   </div>
 </template>
 
 <script setup>
-/** Carte de saisie : affiche les points du jeu, un clic positionne le point actif. */
+/** Input map: displays dataset points; click to place the active point. */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import L from 'leaflet'
 import { BASEMAPS } from '@/utils/basemaps'
@@ -22,7 +22,7 @@ let layer = null
 
 const activeLabel = computed(() => {
   const p = props.points[props.active]
-  return p ? (p.name || `le point ${props.active + 1}`) : 'un point'
+  return p ? (p.name || `point ${props.active + 1}`) : 'a point'
 })
 
 onMounted(() => {

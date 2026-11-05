@@ -29,7 +29,7 @@
         <v-btn variant="outlined" prepend-icon="mdi-table-arrow-down" :disabled="!selection.length" :loading="exporting" @click="exportSel">
           Export for editing ({{ selection.length }})
         </v-btn>
-        <v-btn color="primary" prepend-icon="mdi-plus" to="/deposer">Submit</v-btn>
+        <v-btn color="primary" prepend-icon="mdi-plus" to="/submit">Submit</v-btn>
       </div>
       <v-data-table-server
         v-model="selection" :headers="headers" :items="items" :items-length="total" :loading="loading"
@@ -37,17 +37,17 @@
         no-data-text="No datasets yet. Submit one using the form or import a spreadsheet."
         @update:options="(o) => { page = o.page; perPage = o.itemsPerPage; load() }"
       >
-        <template #item.title="{ item }"><router-link :to="`/jeux/${item.uuid}`" class="gs-tlink">{{ item.title }}</router-link></template>
+        <template #item.title="{ item }"><router-link :to="`/datasets/${item.uuid}`" class="gs-tlink">{{ item.title }}</router-link></template>
         <template #item.status="{ item }"><v-chip :color="STATUS[item.status].color" size="small" variant="tonal">{{ STATUS[item.status].label }}</v-chip></template>
         <template #item.period="{ item }">{{ fmtPeriod(item.temporalStart, item.temporalEnd) }}</template>
         <template #item.updatedAt="{ item }">{{ fmtDate(item.updatedAt) }}</template>
         <template #item.actions="{ item }">
-          <v-btn icon="mdi-pencil-outline" variant="text" size="small" :to="`/jeux/${item.uuid}/modifier`" :aria-label="`Edit ${item.title}`" />
+          <v-btn icon="mdi-pencil-outline" variant="text" size="small" :to="`/datasets/${item.uuid}/edit`" :aria-label="`Edit ${item.title}`" />
         </template>
       </v-data-table-server>
       <p class="text-muted text-body-2 mt-3">
         “Export for editing” creates a spreadsheet containing each dataset's ID. After editing it,
-        <router-link to="/importer">re-import it</router-link> to update the datasets in one operation.
+        <router-link to="/import">re-import it</router-link> to update the datasets in one operation.
       </p>
     </template>
   </div>

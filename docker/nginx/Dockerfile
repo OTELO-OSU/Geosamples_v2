@@ -1,4 +1,4 @@
-# Front Vue/Vuetify compilé, servi par nginx qui relaie /api vers php-fpm
+# Compiled Vue/Vuetify frontend, served by nginx which proxies /api to php-fpm
 FROM node:24-alpine AS builder
 WORKDIR /app
 COPY front/package.json front/package-lock.json ./

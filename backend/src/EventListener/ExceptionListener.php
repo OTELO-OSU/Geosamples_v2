@@ -11,7 +11,7 @@ use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
-/** Convertit les exceptions des routes /api en réponses JSON homogènes. */
+/** Convert API route exceptions into consistent JSON responses. */
 #[AsEventListener(event: 'kernel.exception', priority: 10)]
 final class ExceptionListener
 {
@@ -34,7 +34,7 @@ final class ExceptionListener
             return;
         }
         if ($e instanceof AccessDeniedException) {
-            $event->setResponse(new JsonResponse(['error' => 'Accès refusé'], 403));
+            $event->setResponse(new JsonResponse(['error' => 'Access denied'], 403));
             return;
         }
         if ($e instanceof HttpExceptionInterface) {

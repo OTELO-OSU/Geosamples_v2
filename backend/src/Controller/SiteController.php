@@ -18,14 +18,14 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * GET    /api/context                 site résolu (hôte / X-Site), mode de fédération, utilisateur
- * GET    /api/sites                   portail : sites publiés (+ sites dont on est membre)
- * GET    /api/sites/{slug}            configuration publique d'un site
- * PUT    /api/sites/{slug}            mise à jour (responsable ; hôtes, slug et publication : admin)
- * POST   /api/sites/{slug}/logo       logo (responsable)
+ * GET    /api/context                 resolved site (host / X-Site), federation mode, user
+ * GET    /api/sites                   portal: published sites (+ sites the user belongs to)
+ * GET    /api/sites/{slug}            public site configuration
+ * PUT    /api/sites/{slug}            update (manager; hostnames, slug, and publication: admin)
+ * POST   /api/sites/{slug}/logo       logo (manager)
  * GET    /api/sites/{slug}/logo
- * POST   /api/admin/sites             création (admin)
- * DELETE /api/admin/sites/{slug}      suppression (admin)
+ * POST   /api/admin/sites             create (admin)
+ * DELETE /api/admin/sites/{slug}      delete (admin)
  */
 final class SiteController extends ApiController
 {
@@ -97,16 +97,16 @@ final class SiteController extends ApiController
         $d = $this->body($request);
         $slug = mb_strtolower(trim((string) ($d['slug'] ?? '')));
         if (!preg_match('/^[a-z0-9][a-z0-9-]{1,62}$/', $slug)) {
-            throw ApiException::validation(['slug' => 'Identifiant invalide (minuscules, chiffres, tirets)']);
+            throw ApiException::validation(['slug' => 'Invalid identifier (use lowercase letters, digits, and hyphens)']);
         }
         if ($this->siteRepo->findOneBy(['slug' => $slug])) {
-            throw ApiException::validation(['slug' => 'Identifiant déjà utilisé']);
+            throw ApiException::validation(['slug' => 'Identifier is already in use']);
         }
         $site = new Site($slug, trim((string) ($d['title'] ?? $slug)) ?: $slug);
         $this->applyConfig($site, $d, true);
         $this->em->persist($site);
 
-        // Responsable initial facultatif
+        // Optional initial manager.
         if (!empty($d['managerEmail'])) {
             $email = mb_strtolower(trim((string) $d['managerEmail']));
             $u = $this->users->findOneByEmail($email) ?? new \App\Entity\User($email);
@@ -127,7 +127,7 @@ final class SiteController extends ApiController
         if ($n > 0) {
             $force = filter_var($this->body($request)['force'] ?? false, FILTER_VALIDATE_BOOLEAN);
             if (!$force) {
-                throw new ApiException("Il y a $n jeu(x) de données dans le site. Êtes-vous sûr de vouloir le supprimer ?", 409);
+                throw new ApiException("This site contains $n dataset(s). Are you sure you want to delete it?", 409);
             }
             $conn->executeStatement('DELETE FROM dataset WHERE site_id = ?', [$site->getId()]);
         }
@@ -144,7 +144,7 @@ final class SiteController extends ApiController
         $this->perm->denyUnless($this->perm->canManageSite($site));
         $file = $request->files->get('file');
         if (!$file || !\in_array($file->getMimeType(), ['image/png', 'image/jpeg', 'image/webp'], true) || $file->getSize() > 2_000_000) {
-            throw new ApiException('Logo PNG, JPEG ou WebP de 2 Mo maximum attendu');
+            throw new ApiException('Expected a PNG, JPEG, or WebP logo up to 2 MB');
         }
         $dir = $this->storage->logoDir();
         if (!is_dir($dir)) {
@@ -180,7 +180,7 @@ final class SiteController extends ApiController
         $errors = [];
         if (isset($d['title'])) {
             $t = trim((string) $d['title']);
-            $t === '' ? $errors['title'] = 'Titre obligatoire' : $site->setTitle(mb_substr($t, 0, 255));
+            $t === '' ? $errors['title'] = 'Title is required' : $site->setTitle(mb_substr($t, 0, 255));
         }
         foreach (['subtitle', 'description', 'about'] as $k) {
             if (\array_key_exists($k, $d)) {
@@ -204,7 +204,7 @@ final class SiteController extends ApiController
             $m = $d['map'];
             $center = $m['center'] ?? null;
             if (!\is_array($center) || \count($center) !== 2 || !is_numeric($center[0]) || !is_numeric($center[1])) {
-                $errors['map.center'] = 'Centre [lat, lon] attendu';
+                $errors['map.center'] = 'Expected center [lat, lon]';
             } else {
                 $site->setMap([
                     'center' => [(float) $center[0], (float) $center[1]],
@@ -263,11 +263,11 @@ final class SiteController extends ApiController
                     $h = mb_strtolower(trim((string) $h));
                     if ($h === '') { continue; }
                     if (!preg_match('/^[a-z0-9.-]+(:\d+)?$/', $h)) {
-                        $errors['hostnames'] = "Nom d'hôte invalide : $h";
+                        $errors['hostnames'] = "Invalid hostname: $h";
                     }
                     $other = $this->siteRepo->findOneByHost($h);
                     if ($other && $other->getId() !== $site->getId()) {
-                        $errors['hostnames'] = "$h est déjà utilisé par le site {$other->getSlug()}";
+                        $errors['hostnames'] = "$h is already used by site {$other->getSlug()}";
                     }
                 }
                 $site->setHostnames($hosts);

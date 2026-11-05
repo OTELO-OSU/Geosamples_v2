@@ -3,9 +3,9 @@
 namespace App\Service;
 
 /**
- * Analyse souple des dates saisies ou importées :
+ * Flexible parsing of entered or imported dates:
  *  "2021", "2021-06", "2021-06-15", "15/06/2021", "2021-06-15T10:30", ISO 8601…
- * Une date partielle utilisée comme borne de fin est étendue à la fin de la période.
+ * A partial date used as an end bound is extended to the end of the period.
  */
 final class DateParser
 {
@@ -40,7 +40,7 @@ final class DateParser
             $d = new \DateTimeImmutable($s . ' 00:00:00', $utc);
             return $isEnd ? $d->setTime(23, 59, 59) : $d;
         }
-        // Numéro de série Excel (jours depuis 1899-12-30)
+        // Excel serial number (days since 1899-12-30)
         if (preg_match('/^\d{5}(\.\d+)?$/', $s)) {
             $days = (float) $s;
             return (new \DateTimeImmutable('1899-12-30 00:00:00', $utc))->modify(sprintf('+%d seconds', (int) round($days * 86400)));

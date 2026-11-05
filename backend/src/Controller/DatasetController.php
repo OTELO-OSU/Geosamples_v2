@@ -18,17 +18,17 @@ use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * GET    /api/sites/{slug}/datasets            liste filtrée et paginée
- * GET    /api/sites/{slug}/map?zoom=&bbox=     points ou regroupements selon le zoom
- * GET    /api/sites/{slug}/facets              valeurs de filtres, emprise, histogramme temporel
- * POST   /api/sites/{slug}/datasets            création (membre) — {…, submit: bool}
+ * GET    /api/sites/{slug}/datasets            filtered, paginated list
+ * GET    /api/sites/{slug}/map?zoom=&bbox=     points or clusters by zoom level
+ * GET    /api/sites/{slug}/facets              filter values, extent, temporal histogram
+ * POST   /api/sites/{slug}/datasets            create (member) — {…, submit: bool}
  * GET    /api/sites/{slug}/datasets/{uuid}
- * PUT    /api/sites/{slug}/datasets/{uuid}     modification
+ * PUT    /api/sites/{slug}/datasets/{uuid}     update
  * DELETE /api/sites/{slug}/datasets/{uuid}
  * POST   /api/sites/{slug}/datasets/{uuid}/status   {action: submit|publish|reject|unpublish|draft, comment?}
  * POST   /api/sites/{slug}/datasets/{uuid}/files    multipart files[] + kind
  * DELETE /api/sites/{slug}/datasets/{uuid}/files/{id}
- * GET    /api/files/{id}[?inline=1]                 téléchargement (droits du jeu)
+ * GET    /api/files/{id}[?inline=1]                 download (dataset permissions)
  */
 final class DatasetController extends ApiController
 {
@@ -124,7 +124,7 @@ final class DatasetController extends ApiController
     {
         $site = $this->site($slug);
         $user = $this->perm->requireUser();
-        $this->perm->denyUnless($this->perm->canCreateDataset($site), 'Vous devez être referent du site pour déposer des données');
+        $this->perm->denyUnless($this->perm->canCreateDataset($site), 'You must be a site manager or contributor to submit data');
         $payload = $this->body($request);
         $d = new Dataset($site, $user);
         $this->writer->apply($d, $payload);
@@ -154,7 +154,7 @@ final class DatasetController extends ApiController
         $d->touch();
         $manager = $this->perm->canManageSite($d->getSite());
         if (!$manager && $d->isPublished() && $d->getSite()->setting('moderation')) {
-            // Toute modification d'un jeu publié par un contributeur repasse en validation.
+            // Changes to a published dataset by a contributor require review again.
             $d->setStatus(Dataset::STATUS_SUBMITTED);
             $this->notifier->datasetSubmitted($d);
         } elseif (!$d->isPublished()) {
@@ -168,7 +168,7 @@ final class DatasetController extends ApiController
     public function delete(string $slug, string $uuid): JsonResponse
     {
         $d = $this->load($slug, $uuid);
-        $this->perm->denyUnless($this->perm->canDelete($d), 'Un jeu publié ne peut être supprimé que par un responsable');
+        $this->perm->denyUnless($this->perm->canDelete($d), 'Only a manager can delete a published dataset');
         $this->storage->removeAll($d);
         $this->em->remove($d);
         $this->em->flush();
@@ -200,7 +200,7 @@ final class DatasetController extends ApiController
                 $this->perm->denyUnless($manager);
                 $comment = trim((string) ($body['comment'] ?? ''));
                 if ($comment === '') {
-                    throw ApiException::validation(['comment' => 'Un commentaire est requis pour un refus']);
+                    throw ApiException::validation(['comment' => 'A comment is required when rejecting a dataset']);
                 }
                 $d->setStatus(Dataset::STATUS_REJECTED)->setReviewComment($comment);
                 $this->notifier->datasetReviewed($d, false);
@@ -224,7 +224,7 @@ final class DatasetController extends ApiController
         $this->perm->denyUnless($this->perm->canEdit($d));
         $files = $request->files->all('files') ?: array_filter([$request->files->get('file')]);
         if (!$files) {
-            throw new ApiException('Aucun fichier reçu');
+            throw new ApiException('No file received');
         }
         $kind = $request->request->get('kind');
         $out = [];
@@ -262,7 +262,7 @@ final class DatasetController extends ApiController
         if (!$this->perm->canView($d)) {
             throw ApiException::notFound();
         }
-        $this->perm->denyUnless($this->perm->canDownload($d), 'Fichier réservé aux membres du site');
+        $this->perm->denyUnless($this->perm->canDownload($d), 'File access is restricted to site members');
         $path = $this->storage->path($f);
         if (!is_file($path)) {
             throw ApiException::notFound('Fichier absent du stockage');
@@ -287,12 +287,12 @@ final class DatasetController extends ApiController
         $site = $this->site($slug);
         $d = $this->datasets->findOneInSite($site, $uuid);
         if (!$d) {
-            throw ApiException::notFound('Jeu de données introuvable');
+            throw ApiException::notFound('Dataset not found');
         }
         return $d;
     }
 
-    /** Soumission : publication directe si pas de modération ou si l'auteur est responsable. */
+    /** Submission: publish directly if moderation is disabled or the author is a manager. */
     private function applySubmit(Dataset $d, bool $submit): void
     {
         if (!$submit) {

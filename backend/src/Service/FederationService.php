@@ -15,19 +15,19 @@ use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
- * Authentification via la fédération d'identité RENATER.
+ * Authentication via the RENATER identity federation.
  *
- * Deux modes (FEDERATION_MODE) :
+ * Two modes (FEDERATION_MODE):
  *
- *  oidc       — l'application est cliente OIDC d'un Keycloak (ou SATOSA) lui-même
- *               fournisseur de service SAML de la fédération RENATER (WAYF/discovery
- *               côté Keycloak). Flux "authorization code" + PKCE, les attributs sont
- *               lus sur l'endpoint userinfo. C'est l'architecture retenue pour Projet_IGSN.
+ *  oidc       — the application is an OIDC client of Keycloak (or SATOSA), which is
+ *               itself a SAML service provider for the RENATER federation (WAYF/discovery
+ *               through Keycloak). "Authorization code" + PKCE flow; attributes are
+ *               read from the userinfo endpoint. This is the architecture used for Projet_IGSN.
  *
- *  shibboleth — un Apache mod_shib (SP RENATER) ou un CAS protège /api/auth/shibboleth
- *               et transmet les attributs en en-têtes (comme /api/loginCAS d'ORDaR v2).
- *               SHIB_SHARED_SECRET permet d'exiger un en-tête X-Shib-Secret posé par
- *               le reverse proxy, pour refuser des en-têtes forgés.
+ *  shibboleth — Apache mod_shib (RENATER SP) or CAS protects /api/auth/shibboleth
+ *               and passes attributes in headers (as with ORDaR v2's /api/loginCAS).
+ *               SHIB_SHARED_SECRET can require an X-Shib-Secret header set by the
+ *               reverse proxy to reject forged headers.
  */
 final class FederationService
 {
@@ -109,19 +109,19 @@ final class FederationService
         return $resp;
     }
 
-    /** @return array{0: User, 1: string} [utilisateur, chemin de retour] */
+    /** @return array{0: User, 1: string} [user, return path] */
     public function oidcCallback(Request $request): array
     {
         if ($this->mode() !== 'oidc') {
             throw ApiException::notFound();
         }
         if ($err = $request->query->get('error')) {
-            throw new ApiException('Connexion refusée par le fournisseur d\'identité : ' . $err, 401);
+            throw new ApiException('Sign-in rejected by identity provider: ' . $err, 401);
         }
         $state = $this->verify((string) $request->query->get('state'));
         [$nonce, $verifier] = array_pad(explode('.', (string) $request->cookies->get(self::STATE_COOKIE), 2), 2, '');
         if (!$state || !hash_equals((string) $state['n'], $nonce) || $state['e'] < time()) {
-            throw new ApiException('Session de connexion invalide ou expirée, veuillez réessayer', 401);
+            throw new ApiException('Sign-in session is invalid or expired; please try again', 401);
         }
         $cfg = $this->discovery();
         $tokenResp = $this->http->request('POST', $cfg['token_endpoint'], [
@@ -136,11 +136,11 @@ final class FederationService
         ]);
         if ($tokenResp->getStatusCode() !== 200) {
             $this->logger->warning('OIDC token exchange failed', ['body' => $tokenResp->getContent(false)]);
-            throw new ApiException('Échec de l\'échange du code d\'autorisation', 401);
+            throw new ApiException('Failed to exchange authorization code', 401);
         }
         $tokens = $tokenResp->toArray();
-        // L'access token est obtenu directement du token endpoint (TLS, client authentifié) :
-        // les attributs sont lus sur userinfo plutôt que dans l'id_token.
+        // The access token comes directly from the token endpoint (TLS, authenticated client):
+        // attributes are read from userinfo rather than the id_token.
         $claims = $this->http->request('GET', $cfg['userinfo_endpoint'], [
             'headers' => ['Authorization' => 'Bearer ' . $tokens['access_token']],
         ])->toArray();
@@ -169,7 +169,7 @@ final class FederationService
         }
         $nonce = bin2hex(random_bytes(16));
         $state = $this->sign(['n' => $nonce, 'r' => self::safeReturn($return), 'e' => time() + 600]);
-        // Même forme que ORDaR v2 : redirect_uri non encodé, scope openid
+        // Same format as ORDaR v2: unencoded redirect_uri, openid scope.
         $url = $this->orcidBase() . '/oauth/authorize?client_id=' . rawurlencode($this->orcidClientId)
             . '&response_type=code&scope=openid&redirect_uri=' . $this->orcidCallbackUrl($request)
             . '&state=' . rawurlencode($state);
@@ -178,19 +178,19 @@ final class FederationService
         return $resp;
     }
 
-    /** @return array{0: User, 1: string} [utilisateur, chemin de retour] */
+    /** @return array{0: User, 1: string} [user, return path] */
     public function orcidCallback(Request $request): array
     {
         if ($this->orcidLoginUrl() === null) {
             throw ApiException::notFound();
         }
         if ($err = $request->query->get('error')) {
-            throw new ApiException('Connexion refusée par ORCID : ' . $err, 401);
+            throw new ApiException('Sign-in rejected by ORCID: ' . $err, 401);
         }
         $state = $this->verify((string) $request->query->get('state'));
         $nonce = (string) $request->cookies->get(self::ORCID_STATE_COOKIE);
         if (!$state || !hash_equals((string) $state['n'], $nonce) || $state['e'] < time()) {
-            throw new ApiException('Session de connexion invalide ou expirée, veuillez réessayer', 401);
+            throw new ApiException('Sign-in session is invalid or expired; please try again', 401);
         }
 
         $tokenResponse = $this->http->request('POST', $this->orcidBase() . '/oauth/token', [
@@ -204,12 +204,12 @@ final class FederationService
         ]);
         if ($tokenResponse->getStatusCode() !== 200) {
             $this->logger->warning('ORCID token exchange failed', ['body' => $tokenResponse->getContent(false)]);
-            throw new ApiException('Échec de l\'échange du code ORCID', 401);
+            throw new ApiException('Failed to exchange ORCID code', 401);
         }
         $tokens = $tokenResponse->toArray();
         $accessToken = (string) ($tokens['access_token'] ?? '');
         if ($accessToken === '') {
-            throw new ApiException('Réponse ORCID invalide', 401);
+            throw new ApiException('Invalid ORCID response', 401);
         }
 
         $userinfoResponse = $this->http->request('GET', $this->orcidBase() . '/oauth/userinfo', [
@@ -220,12 +220,12 @@ final class FederationService
         ]);
         if ($userinfoResponse->getStatusCode() !== 200) {
             $this->logger->warning('ORCID userinfo request failed', ['status' => $userinfoResponse->getStatusCode()]);
-            throw new ApiException('Impossible de récupérer votre profil ORCID', 401);
+            throw new ApiException('Unable to retrieve your ORCID profile', 401);
         }
         $claims = $userinfoResponse->toArray();
         $orcid = self::canonicalOrcid((string) ($claims['sub'] ?? $tokens['orcid'] ?? ''));
         if ($orcid === '') {
-            throw new ApiException('ORCID n\'a pas transmis un identifiant valide', 401);
+            throw new ApiException('ORCID did not provide a valid identifier', 401);
         }
 
         $email = trim((string) ($claims['email'] ?? ''));
@@ -256,7 +256,7 @@ final class FederationService
             throw ApiException::notFound();
         }
         if ($this->shibSharedSecret !== '' && !hash_equals($this->shibSharedSecret, (string) $request->headers->get('X-Shib-Secret'))) {
-            throw ApiException::forbidden('En-têtes de fédération non approuvés');
+            throw ApiException::forbidden('Untrusted federation headers');
         }
         $h = fn (string $k) => trim(explode(';', (string) $request->headers->get($this->shibHeaders[$k] ?? $k, ''))[0]);
         return $this->upsert([
@@ -271,8 +271,8 @@ final class FederationService
 
     // ------------------------------------------------------------------- commun
     /**
-     * Rattache l'identité fédérée à un compte : par identifiant fédéré, sinon par
-     * e-mail (compte pré-créé par un responsable), sinon création.
+     * Attach the federated identity to an account: by federated ID, then by
+     * email (an account pre-created by a manager), or create a new account.
      */
     public function upsert(array $id): User
     {
@@ -288,15 +288,15 @@ final class FederationService
         }
         if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $message = ($id['idp'] ?? '') === 'orcid'
-                ? 'Aucune adresse e-mail valide n\'a été transmise. Rendez votre adresse e-mail publique dans ORCID puis réessayez.'
-                : 'Votre établissement n\'a pas transmis d\'adresse e-mail : connexion impossible';
+                ? 'No valid email address was provided. Make your email address public in ORCID and try again.'
+                : 'Your institution did not provide an email address; sign-in is not possible.';
             throw new ApiException($message, 401);
         }
         if ($user && !$user->isActive()) {
-            throw ApiException::forbidden('Compte désactivé');
+            throw ApiException::forbidden('Account disabled');
         }
         if ($orcid && $user?->getOrcid() !== null && $user->getOrcid() !== $orcid) {
-            throw ApiException::forbidden('Un autre identifiant ORCID est déjà associé à ce compte');
+            throw ApiException::forbidden('Another ORCID iD is already linked to this account');
         }
         if (!$user) {
             $user = new User($email);
@@ -319,7 +319,7 @@ final class FederationService
     private function discovery(): array
     {
         if ($this->oidcIssuer === '') {
-            throw new \RuntimeException('OIDC_ISSUER non configuré');
+            throw new \RuntimeException('OIDC_ISSUER is not configured');
         }
         return $this->cache->get('oidc_discovery_' . md5($this->oidcIssuer), function (ItemInterface $item) {
             $item->expiresAfter(3600);
@@ -334,7 +334,7 @@ final class FederationService
 
     private function orcidCallbackUrl(Request $request): string
     {
-        // L'URI doit être identique à celle déclarée chez ORCID (ORCID_CLIENT_REDIRECT_URI)
+        // This URI must match the one registered with ORCID (ORCID_CLIENT_REDIRECT_URI).
         return $this->orcidRedirectUri !== ''
             ? $this->orcidRedirectUri
             : $request->getSchemeAndHttpHost() . '/api/auth/orcid/callback';

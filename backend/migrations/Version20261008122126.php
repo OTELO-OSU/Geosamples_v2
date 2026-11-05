@@ -14,7 +14,7 @@ final class Version20261008122126 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Schéma initial GeoSamples v2';
+        return 'Initial GeoSamples v2 schema';
     }
 
     public function up(Schema $schema): void

@@ -4,7 +4,7 @@
     <v-progress-linear v-if="!ds && !error" indeterminate color="primary" />
     <v-alert v-else-if="error" type="warning" variant="tonal">{{ error }}</v-alert>
     <DatasetDetail v-else :ds="ds" :site="site">
-      <template #actions><DatasetActions :ds="ds" :site="site" @changed="(d) => (ds = d)" @deleted="router.push('/espace')" /></template>
+      <template #actions><DatasetActions :ds="ds" :site="site" @changed="(d) => (ds = d)" @deleted="router.push('/workspace')" /></template>
     </DatasetDetail>
   </div>
 </template>
@@ -36,6 +36,6 @@ watch(() => props.uuid, async (u) => {
 
 function back() {
   if (window.history.state?.back) router.back()
-  else router.push({ path: '/', query: { jeu: props.uuid } })
+  else router.push({ path: '/', query: { dataset: props.uuid } })
 }
 </script>

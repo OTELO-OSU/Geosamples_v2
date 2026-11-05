@@ -1,6 +1,6 @@
 /**
- * Vite — même outillage qu'ORDaR v2 (Vue 3 + Vuetify).
- * En développement, /api est relayé vers le backend Symfony (php -S ou conteneur php).
+ * Vite — same tooling as ORDaR v2 (Vue 3 + Vuetify).
+ * In development, /api is proxied to the Symfony backend (php -S or php container).
  */
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'

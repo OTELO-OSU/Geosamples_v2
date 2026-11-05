@@ -12,9 +12,9 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Jetons de session, même schéma qu'ORDaR v2 :
- *  - access token JWT court (15 min), conservé en mémoire par le front
- *  - refresh token opaque, rotatif, en cookie HttpOnly limité à /api/auth
+ * Session tokens, following the same scheme as ORDaR v2:
+ *  - short-lived JWT access token (15 min), held in frontend memory
+ *  - opaque, rotating refresh token in an HttpOnly cookie limited to /api/auth
  */
 final class AuthService
 {
@@ -28,7 +28,7 @@ final class AuthService
         private bool $cookieSecure,
     ) {}
 
-    /** Crée un refresh token et renvoie le cookie correspondant. */
+    /** Create a refresh token and return the corresponding cookie. */
     public function issueRefreshCookie(User $user): Cookie
     {
         $raw = bin2hex(random_bytes(32));
@@ -51,11 +51,11 @@ final class AuthService
         return $resp;
     }
 
-    /** Consomme un refresh token (rotation) et renvoie l'utilisateur + nouveau cookie. */
+    /** Consume a refresh token (rotation) and return the user and a new cookie. */
     public function rotate(?string $raw): array
     {
         if (!$raw) {
-            throw ApiException::unauthorized('Session absente');
+            throw ApiException::unauthorized('Session missing');
         }
         $repo = $this->em->getRepository(RefreshToken::class);
         $token = $repo->findOneBy(['tokenHash' => hash('sha256', $raw)]);
@@ -64,13 +64,13 @@ final class AuthService
                 $this->em->remove($token);
                 $this->em->flush();
             }
-            throw ApiException::unauthorized('Session expirée');
+            throw ApiException::unauthorized('Session expired');
         }
         $user = $token->getUser();
         $this->em->remove($token);
         if (!$user->isActive()) {
             $this->em->flush();
-            throw ApiException::forbidden('Compte désactivé');
+            throw ApiException::forbidden('Account disabled');
         }
         return [$user, $this->issueRefreshCookie($user)];
     }

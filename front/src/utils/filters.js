@@ -1,4 +1,4 @@
-/** Filtres de recherche ↔ paramètres d'API ↔ query string (liens partageables). */
+/** Search filters ↔ API parameters ↔ query string (shareable links). */
 export function emptyFilters() {
   return { q: '', kw: [], from: null, to: null, elevMin: null, elevMax: null, f: {}, nature:[], 'sample-type':[] }
 }

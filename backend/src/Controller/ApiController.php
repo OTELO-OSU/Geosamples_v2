@@ -11,7 +11,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Contracts\Service\Attribute\Required;
 
-/** Socle commun des contrôleurs JSON. */
+/** Shared base for JSON controllers. */
 abstract class ApiController extends AbstractController
 {
     protected Permissions $perm;
@@ -37,17 +37,17 @@ abstract class ApiController extends AbstractController
             throw new ApiException('Corps JSON invalide');
         }
         if (!\is_array($data)) {
-            throw new ApiException('Objet JSON attendu');
+            throw new ApiException('Expected a JSON object');
         }
         return $data;
     }
 
-    /** Site visible par l'utilisateur courant (les sites non publiés sont réservés aux membres). */
+    /** Site visible to the current user (unpublished sites are restricted to members). */
     protected function site(string $slug): Site
     {
         $site = $this->sites->bySlug($slug);
         if (!$this->perm->canViewSite($site)) {
-            throw ApiException::notFound('Site introuvable');
+            throw ApiException::notFound('Site not found');
         }
         return $site;
     }

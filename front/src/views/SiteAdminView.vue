@@ -57,7 +57,7 @@
             <v-select v-model="cfg.settings.defaultAccessRight" :items="[{ value: 'open', title: 'Open to everyone' }, { value: 'restricted', title: 'Restricted to members' }]" label="Default file access" />
             <v-select v-model="cfg.settings.defaultLicense" :items="LICENSES" label="Default license" />
             <v-text-field v-model="cfg.settings.verticalDatum" label="Default vertical datum" placeholder="NGF-IGN69, EGM2008…" />
-            <v-text-field v-model="cfg.settings.contactEmail" label="E-mail de contact" :error-messages="errors['settings.contactEmail']" />
+            <v-text-field v-model="cfg.settings.contactEmail" label="Contact email" :error-messages="errors['settings.contactEmail']" />
             <v-text-field v-model="cfg.settings.ordarUrl" label="ORDaR repository URL" class="gs-span-2" />
           </div>
           <template v-if="auth.isAdmin">

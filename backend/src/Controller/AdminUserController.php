@@ -12,7 +12,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Administration globale des comptes (ROLE_ADMIN, cf. access_control).
+ * Global account administration (ROLE_ADMIN; see access_control).
  * GET   /api/admin/users?q=
  * POST  /api/admin/users          {email, firstname, lastname, password?, admin?}
  * PATCH /api/admin/users/{id}     {admin?, active?, password?}
@@ -38,10 +38,10 @@ final class AdminUserController extends ApiController
         $d = $this->body($request);
         $email = mb_strtolower(trim((string) ($d['email'] ?? '')));
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw ApiException::validation(['email' => 'E-mail invalide']);
+            throw ApiException::validation(['email' => 'Invalid email']);
         }
         if ($this->users->findOneByEmail($email)) {
-            throw ApiException::validation(['email' => 'Ce compte existe déjà']);
+            throw ApiException::validation(['email' => 'This account already exists']);
         }
         $u = (new User($email))->setFirstname((string) ($d['firstname'] ?? ''))->setLastname((string) ($d['lastname'] ?? ''))
             ->setAffiliation($d['affiliation'] ?? null)->setAdmin((bool) ($d['admin'] ?? false));
@@ -59,13 +59,13 @@ final class AdminUserController extends ApiController
         $me = $this->perm->user();
         if (\array_key_exists('admin', $d)) {
             if ($me?->getId() === $u->getId() && !$d['admin']) {
-                throw new ApiException('Vous ne pouvez pas retirer vos propres droits d\'administration');
+                throw new ApiException('You cannot remove your own administrator privileges');
             }
             $u->setAdmin((bool) $d['admin']);
         }
         if (\array_key_exists('active', $d)) {
             if ($me?->getId() === $u->getId() && !$d['active']) {
-                throw new ApiException('Vous ne pouvez pas désactiver votre propre compte');
+                throw new ApiException('You cannot deactivate your own account');
             }
             $u->setActive((bool) $d['active']);
         }
@@ -85,7 +85,7 @@ final class AdminUserController extends ApiController
             return;
         }
         if (mb_strlen((string) $pwd) < 12) {
-            throw ApiException::validation(['password' => '12 caractères minimum']);
+            throw ApiException::validation(['password' => 'Password must be at least 12 characters']);
         }
         $u->setPassword($this->hasher->hashPassword($u, (string) $pwd));
     }

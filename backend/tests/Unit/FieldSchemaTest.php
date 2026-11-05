@@ -15,30 +15,30 @@ final class FieldSchemaTest extends TestCase
     {
         $this->schema = new FieldSchema();
         $this->fields = $this->schema->normalizeDefinitions([
-            ['key' => 'lithology', 'label' => 'Lithologie', 'type' => 'select', 'options' => ['Granite', 'Grès'], 'required' => true],
-            ['key' => 'ores', 'label' => 'Minéralisation', 'type' => 'multiselect', 'options' => ['Sulfures', 'Oxydes']],
+            ['key' => 'lithology', 'label' => 'Lithology', 'type' => 'select', 'options' => ['Granite', 'Sandstone'], 'required' => true],
+            ['key' => 'ores', 'label' => 'Mineralization', 'type' => 'multiselect', 'options' => ['Sulfides', 'Oxides']],
             ['key' => 'ni', 'label' => 'Nickel', 'type' => 'number'],
-            ['key' => 'core', 'label' => 'Carotte', 'type' => 'boolean'],
-            ['key' => 'temp', 'label' => 'Température', 'type' => 'number', 'scope' => 'point'],
+            ['key' => 'core', 'label' => 'Core', 'type' => 'boolean'],
+            ['key' => 'temp', 'label' => 'Temperature', 'type' => 'number', 'scope' => 'point'],
         ]);
     }
 
     public function testCoercionIsLenientButStrictOnLists(): void
     {
         [$v, $e] = $this->schema->validateValues($this->fields, [
-            'lithology' => 'gres', 'ores' => 'sulfures; Oxydes', 'ni' => '12,5', 'core' => 'oui',
+            'lithology' => 'sandstone', 'ores' => 'sulfides; Oxides', 'ni' => '12,5', 'core' => 'yes',
         ], 'dataset');
         self::assertSame([], $e);
-        self::assertSame(['lithology' => 'Grès', 'ores' => ['Sulfures', 'Oxydes'], 'ni' => 12.5, 'core' => true], $v);
+        self::assertSame(['lithology' => 'Sandstone', 'ores' => ['Sulfides', 'Oxides'], 'ni' => 12.5, 'core' => true], $v);
     }
 
     public function testErrorsAndScopes(): void
     {
-        [, $e] = $this->schema->validateValues($this->fields, ['ores' => 'Or', 'ni' => 'beaucoup', 'temp' => 'x'], 'dataset');
+        [, $e] = $this->schema->validateValues($this->fields, ['ores' => 'Gold', 'ni' => 'many', 'temp' => 'x'], 'dataset');
         self::assertArrayHasKey('properties.lithology', $e);
         self::assertArrayHasKey('properties.ores', $e);
         self::assertArrayHasKey('properties.ni', $e);
-        self::assertArrayNotHasKey('properties.temp', $e, 'les champs « point » ne sont pas contrôlés au niveau du jeu');
+        self::assertArrayNotHasKey('properties.temp', $e, 'point fields are not validated at the dataset level');
     }
 
     public function testReservedAndDuplicateKeysRejected(): void

@@ -68,7 +68,7 @@ watch([buckets, () => props.from, () => props.to], syncFromProps, { immediate: t
 
 const active = computed(() => !!(props.from || props.to))
 const label = computed(() => {
-  if (!buckets.value.length) return 'Aucune date'
+  if (!buckets.value.length) return 'No dates'
   const a = buckets.value[range.value[0]], b = buckets.value[range.value[1]]
   const n = buckets.value.slice(range.value[0], range.value[1] + 1).reduce((s, x) => s + x.count, 0)
   const period = a.bucket === b.bucket ? fmt(a) : `${fmt(a)} – ${fmt(b)}`

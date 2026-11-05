@@ -6,12 +6,12 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * Point de prélèvement / station, géolocalisé en 3 dimensions.
- *  - longitude / latitude : WGS84 (EPSG:4326), degrés décimaux
- *  - elevation            : altitude en mètres (négative = profondeur), dans verticalDatum
- *  - observedAt / observedEnd : date ou période propre au point (sinon celle du jeu)
- * Les coordonnées saisies dans un autre système (Lambert 93, UTM…) sont conservées
- * dans srcCrs / srcX / srcY pour traçabilité.
+ * Sampling point / station, geolocated in 3 dimensions.
+ *  - longitude / latitude: WGS84 (EPSG:4326), decimal degrees
+ *  - elevation: elevation in meters (negative = depth), in verticalDatum
+ *  - observedAt / observedEnd: date or period for this point (otherwise the dataset's)
+ * Coordinates entered in another system (Lambert 93, UTM...) are retained
+ * in srcCrs / srcX / srcY for traceability.
  */
 #[ORM\Entity]
 #[ORM\Index(name: 'idx_point_lat_lon', columns: ['latitude', 'longitude'])]

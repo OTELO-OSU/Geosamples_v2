@@ -16,7 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
-#[AsCommand(name: 'app:user:create', description: 'Crée ou met à jour un compte (amorçage du premier administrateur)')]
+#[AsCommand(name: 'app:user:create', description: 'Create or update an account (initial setup for the first administrator)')]
 final class CreateUserCommand extends Command
 {
     public function __construct(
@@ -31,12 +31,12 @@ final class CreateUserCommand extends Command
     protected function configure(): void
     {
         $this->addArgument('email', InputArgument::REQUIRED)
-            ->addOption('password', 'p', InputOption::VALUE_REQUIRED, 'Mot de passe local (sinon : compte fédéré uniquement)')
-            ->addOption('admin', null, InputOption::VALUE_NONE, 'Administrateur global')
+            ->addOption('password', 'p', InputOption::VALUE_REQUIRED, 'Local password (otherwise, federated account only)')
+            ->addOption('admin', null, InputOption::VALUE_NONE, 'Global administrator')
             ->addOption('firstname', null, InputOption::VALUE_REQUIRED, '', '')
             ->addOption('lastname', null, InputOption::VALUE_REQUIRED, '', '')
-            ->addOption('site', null, InputOption::VALUE_REQUIRED, 'Slug du site sur lequel donner un rôle')
-            ->addOption('role', null, InputOption::VALUE_REQUIRED, 'responsable|utilisateur', SiteMembership::ROLE_CONTRIBUTOR);
+            ->addOption('site', null, InputOption::VALUE_REQUIRED, 'Slug of the site where a role will be assigned')
+            ->addOption('role', null, InputOption::VALUE_REQUIRED, 'Site membership role', SiteMembership::ROLE_CONTRIBUTOR);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -54,7 +54,7 @@ final class CreateUserCommand extends Command
         if ($slug = $input->getOption('site')) {
             $site = $this->sites->findOneBy(['slug' => $slug]);
             if (!$site) {
-                $io->error("Site $slug introuvable");
+                $io->error("Site $slug not found");
                 return Command::FAILURE;
             }
             $role = $input->getOption('role');
@@ -66,7 +66,7 @@ final class CreateUserCommand extends Command
             }
         }
         $this->em->flush();
-        $io->success("Compte $email enregistré" . ($user->isAdmin() ? ' (administrateur)' : ''));
+        $io->success("Account $email saved" . ($user->isAdmin() ? ' (administrator)' : ''));
         return Command::SUCCESS;
     }
 }

@@ -45,7 +45,7 @@ HTTPS OIDC callback URLs), and `COOKIE_SECURE=1`.
 ```sh
 cp .env.example .env && $EDITOR .env
 docker compose up -d --build
-docker compose exec php php bin/console app:user:create vous@univ-lorraine.fr --admin --password '…'
+docker compose exec php php bin/console app:user:create you@univ-lorraine.fr --admin --password '…'
 ```
 
 Then, while signed in as an administrator, go to “Global administration” to create sites, hostnames,
@@ -67,7 +67,7 @@ docker compose exec php php bin/console dbal:run-sql "SELECT 1"     # displays t
 - `password authentication failed`: `POSTGRES_PASSWORD` was changed **after** the initial
   initialization of `docker_data/postgres`; PostgreSQL retained the old password. Either update
   the database password:
-  `docker compose exec database psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "ALTER USER \"$POSTGRES_USER\" PASSWORD '<nouveau>'"`,
+  `docker compose exec database psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "ALTER USER \"$POSTGRES_USER\" PASSWORD '<new-password>'"`,
   or, if the database is still empty: `docker compose down && rm -rf docker_data/postgres && docker compose up -d`.
 - `could not translate host name "database"`: the php container is not on the project network
   (start both services using the same `docker compose` project).

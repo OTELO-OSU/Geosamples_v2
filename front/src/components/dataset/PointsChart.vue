@@ -6,7 +6,7 @@
     </div>
     <svg
       ref="svg" :viewBox="`0 0 ${W} ${H}`" class="gs-chart__svg" role="img"
-      :aria-label="`${field.label} au cours du temps, ${pts.length} mesures`"
+      :aria-label="`${field.label} over time, ${pts.length} measurements`"
       @mousemove="hover" @mouseleave="hi = null"
     >
       <g class="grid">
@@ -30,7 +30,7 @@
 </template>
 
 <script setup>
-/** Série temporelle d'une mesure « point » d'un jeu (une ligne, survol avec réticule). */
+/** Time series for a dataset point measurement (line chart with crosshair hover). */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import dayjs from 'dayjs'
 import { fmtDate, fmtNumber } from '@/utils/format'

@@ -5,7 +5,7 @@
       <header class="mb-6">
         <h1>{{ heading }}</h1>
         <p v-if="!uuid" class="text-muted mt-2">
-          To submit multiple datasets at once, use the <router-link to="/importer">spreadsheet import</router-link>.
+          To submit multiple datasets at once, use the <router-link to="/import">spreadsheet import</router-link>.
         </p>
         <v-alert v-if="ds?.status === 'published' && site.settings.moderation && !site.me.canManage" type="info" variant="tonal" density="compact" class="mt-3">
           This dataset is published. A manager must review your changes before they appear on the map.
@@ -187,8 +187,8 @@ async function save(submit) {
       }
       queue.value = []
     }
-    ui.notify(data.status === 'published' ? 'Jeu publié' : data.status === 'submitted' ? 'Jeu soumis à validation' : 'Brouillon enregistré')
-    router.push(`/jeux/${data.uuid}`)
+    ui.notify(data.status === 'published' ? 'Dataset published' : data.status === 'submitted' ? 'Dataset submitted for review' : 'Draft saved')
+    router.push(`/datasets/${data.uuid}`)
   } catch (e) {
     errors.value = errorDetails(e)
     ui.error(errorMessage(e))
@@ -203,7 +203,7 @@ async function deleteFile(f) {
   try {
     await api.delete(`/api/sites/${site.value.slug}/datasets/${props.uuid}/files/${f.id}`)
     ds.value.files = ds.value.files.filter((x) => x.id !== f.id)
-    ui.notify('Fichier supprimé')
+    ui.notify('File deleted')
   } catch (e) {
     ui.error(errorMessage(e))
   }

@@ -27,7 +27,7 @@ When a dataset is added to ORDaR, its DOI is recorded and the detail page displa
 
 ## Run locally (without Docker)
 
-Prérequis : PHP ≥ 8.2 (pdo_pgsql, intl), Composer, Node 22+, PostgreSQL 16+.
+Requirements: PHP ≥ 8.2 (pdo_pgsql, intl), Composer, Node 22+, PostgreSQL 16+.
 
 ```sh
 # Database
@@ -49,7 +49,7 @@ cd front && npm ci && npm run dev
 
 Then open http://localhost:5173 (portal), http://localhost:5173/s/nometal/, or http://localhost:5173/s/orne/.
 Demo accounts (password `demo-geosamples`): `admin@example.org`,
-`responsable.nometal@example.org`, `responsable.orne@example.org`, `contributeur@example.org`.
+`manager.nometal@example.org`, `manager.orne@example.org`, `contributor@example.org`.
 
 Tests: `cd backend && vendor/bin/phpunit` (a `geosamples_test` database is required; see `.env.test`).
 
@@ -58,7 +58,7 @@ Tests: `cd backend && vendor/bin/phpunit` (a `geosamples_test` database is requi
 ```sh
 cp .env.example .env        # secrets, FEDERATION_MODE...
 docker compose up -d --build
-docker compose exec php php bin/console app:user:create vous@univ-lorraine.fr --admin --password '…'
+docker compose exec php php bin/console app:user:create you@univ-lorraine.fr --admin --password '…'
 ```
 
 nginx listens on `127.0.0.1:57010`. The host's Apache reverse proxy (which already handles TLS/certbot)
@@ -117,7 +117,7 @@ front/                  Vue 3 + Vuetify
   src/views             MapView (map + filters + list + preview), DatasetView, DatasetEditView,
                         ImportView, WorkspaceView, SiteAdminView, GlobalAdminView, PortalView…
   src/components/map    SampleMap, TimelineBar, FilterPanel, MapLegend
-docker/                 nginx (front compilé + relais /api), php-fpm (entrypoint : JWT, migrations)
+docker/                 nginx (compiled frontend + /api proxy), php-fpm (entrypoint: JWT, migrations)
 docs/                   architecture, federation, deployment
 ```
 

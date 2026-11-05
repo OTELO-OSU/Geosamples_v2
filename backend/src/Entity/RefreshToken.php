@@ -4,7 +4,7 @@ namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
 
-/** Refresh token opaque (seul son hash SHA-256 est stocké), rotatif à chaque usage. */
+/** Opaque refresh token (only its SHA-256 hash is stored), rotated on every use. */
 #[ORM\Entity]
 #[ORM\Index(name: 'idx_refresh_hash', columns: ['token_hash'])]
 class RefreshToken

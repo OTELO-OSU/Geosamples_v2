@@ -1,4 +1,4 @@
-/** Conversion des points entre l'API et le formulaire. */
+/** Convert points between the API and the form. */
 let k = 0
 const s = (v) => (v === null || v === undefined ? '' : v)
 

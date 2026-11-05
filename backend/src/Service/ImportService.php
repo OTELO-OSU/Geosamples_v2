@@ -10,40 +10,39 @@ use App\Repository\DatasetRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Import / export en lot selon un template tabulaire (CSV ou XLSX, lu et écrit côté
- * navigateur) : une ligne = un point de prélèvement. Les lignes partageant le même
- * `dataset_ref` forment un même jeu ; les métadonnées du jeu sont lues sur la
- * première ligne non vide du groupe. Une colonne `dataset_id` (UUID) désigne un jeu
- * existant à mettre à jour : c'est ce qui permet d'exporter des jeux, de les modifier
- * dans un tableur puis de les réimporter.
+ * Bulk import/export using a tabular template (CSV or XLSX, read and written in the
+ * browser): one row = one sampling point. Rows sharing the same `dataset_ref` form
+ * one dataset; its metadata is read from the first non-empty row in the group. A
+ * `dataset_id` (UUID) column identifies an existing dataset to update, enabling
+ * datasets to be exported, edited in a spreadsheet, and re-imported.
  */
 final class ImportService
 {
     public const MAX_ROWS = 20000;
 
     private const CORE = [
-        ['key' => 'dataset_id', 'label' => 'Identifiant du jeu (mise à jour)', 'level' => 'dataset', 'help' => "UUID d'un jeu existant à remplacer ; vide pour créer"],
-        ['key' => 'dataset_ref', 'label' => 'Référence du jeu', 'level' => 'dataset', 'help' => 'Regroupe plusieurs lignes (points) dans un même jeu'],
-        ['key' => 'title', 'label' => 'Titre', 'level' => 'dataset', 'required' => true],
+        ['key' => 'dataset_id', 'label' => 'Dataset ID (update)', 'level' => 'dataset', 'help' => 'UUID of an existing dataset to replace; leave blank to create'],
+        ['key' => 'dataset_ref', 'label' => 'Dataset reference', 'level' => 'dataset', 'help' => 'Groups multiple rows (points) into one dataset'],
+        ['key' => 'title', 'label' => 'Title', 'level' => 'dataset', 'required' => true],
         ['key' => 'description', 'label' => 'Description', 'level' => 'dataset'],
-        ['key' => 'keywords', 'label' => 'Mots-clés', 'level' => 'dataset', 'help' => 'Séparés par « ; »'],
-        ['key' => 'authors', 'label' => 'Auteurs', 'level' => 'dataset', 'help' => 'Séparés par « ; », affiliation entre parenthèses : Marie Curie (GeoRessources)'],
-        ['key' => 'license', 'label' => 'Licence', 'level' => 'dataset', 'example' => 'CC-BY-4.0'],
-        ['key' => 'access_right', 'label' => 'Accès', 'level' => 'dataset', 'help' => 'open ou restricted', 'options' => ['open', 'restricted']],
-        ['key' => 'language', 'label' => 'Langue', 'level' => 'dataset', 'example' => 'fr'],
-        ['key' => 'temporal_start', 'label' => 'Début de période', 'level' => 'dataset', 'help' => 'AAAA, AAAA-MM, AAAA-MM-JJ ou JJ/MM/AAAA'],
-        ['key' => 'temporal_end', 'label' => 'Fin de période', 'level' => 'dataset'],
+        ['key' => 'keywords', 'label' => 'Keywords', 'level' => 'dataset', 'help' => 'Separate with “;”'],
+        ['key' => 'authors', 'label' => 'Authors', 'level' => 'dataset', 'help' => 'Separate with “;”; put affiliations in parentheses: Marie Curie (GeoRessources)'],
+        ['key' => 'license', 'label' => 'License', 'level' => 'dataset', 'example' => 'CC-BY-4.0'],
+        ['key' => 'access_right', 'label' => 'Access', 'level' => 'dataset', 'help' => 'open or restricted', 'options' => ['open', 'restricted']],
+        ['key' => 'language', 'label' => 'Language', 'level' => 'dataset', 'example' => 'en'],
+        ['key' => 'temporal_start', 'label' => 'Period start', 'level' => 'dataset', 'help' => 'YYYY, YYYY-MM, YYYY-MM-DD, or DD/MM/YYYY'],
+        ['key' => 'temporal_end', 'label' => 'Period end', 'level' => 'dataset'],
         ['key' => 'doi', 'label' => 'DOI ORDaR', 'level' => 'dataset'],
-        ['key' => 'point_name', 'label' => 'Nom du point', 'level' => 'point'],
-        ['key' => 'longitude', 'label' => 'Longitude (WGS84)', 'level' => 'point', 'help' => 'Degrés décimaux ; ou renseigner crs + x + y'],
+        ['key' => 'point_name', 'label' => 'Point name', 'level' => 'point'],
+        ['key' => 'longitude', 'label' => 'Longitude (WGS84)', 'level' => 'point', 'help' => 'Decimal degrees; or provide crs + x + y'],
         ['key' => 'latitude', 'label' => 'Latitude (WGS84)', 'level' => 'point'],
-        ['key' => 'elevation', 'label' => 'Altitude (m)', 'level' => 'point', 'help' => 'Négative pour une profondeur'],
-        ['key' => 'vertical_datum', 'label' => 'Référentiel altimétrique', 'level' => 'point'],
-        ['key' => 'observed_at', 'label' => 'Date du point', 'level' => 'point'],
-        ['key' => 'observed_end', 'label' => 'Fin (point)', 'level' => 'point'],
-        ['key' => 'crs', 'label' => 'Système de coordonnées', 'level' => 'point', 'help' => 'EPSG:4326, EPSG:2154 (Lambert 93), EPSG:326xx (UTM)…'],
-        ['key' => 'x', 'label' => 'X / Est', 'level' => 'point'],
-        ['key' => 'y', 'label' => 'Y / Nord', 'level' => 'point'],
+        ['key' => 'elevation', 'label' => 'Elevation (m)', 'level' => 'point', 'help' => 'Negative for depth'],
+        ['key' => 'vertical_datum', 'label' => 'Vertical datum', 'level' => 'point'],
+        ['key' => 'observed_at', 'label' => 'Point date', 'level' => 'point'],
+        ['key' => 'observed_end', 'label' => 'Point end date', 'level' => 'point'],
+        ['key' => 'crs', 'label' => 'Coordinate system', 'level' => 'point', 'help' => 'EPSG:4326, EPSG:2154 (Lambert 93), EPSG:326xx (UTM)…'],
+        ['key' => 'x', 'label' => 'X / Easting', 'level' => 'point'],
+        ['key' => 'y', 'label' => 'Y / Northing', 'level' => 'point'],
     ];
 
     public function __construct(
@@ -53,7 +52,7 @@ final class ImportService
         private Permissions $perm,
     ) {}
 
-    /** Colonnes du template du site, après personnalisation par le responsable. */
+    /** Site template columns, after customization by the manager. */
     public function columns(Site $site): array
     {
         $custom = $site->getImportTemplate()['columns'] ?? [];
@@ -83,26 +82,26 @@ final class ImportService
     }
 
     /**
-     * Regroupe les lignes en jeux de données.
+     * Group rows into datasets.
      * @return list<array{ref:string, datasetId:?string, rows:int[], payload:array}>
      */
     public function group(Site $site, array $rows): array
     {
         if (\count($rows) > self::MAX_ROWS) {
-            throw new ApiException(sprintf('Trop de lignes (%d max.)', self::MAX_ROWS));
+            throw new ApiException(sprintf('Too many rows (%d max.)', self::MAX_ROWS));
         }
         $fields = $site->getFieldMap();
         $groups = [];
         foreach (array_values($rows) as $i => $row) {
             $row = array_map(static fn ($v) => \is_string($v) ? trim($v) : $v, (array) $row);
             if (!array_filter($row, static fn ($v) => $v !== null && $v !== '')) {
-                continue; // ligne vide
+                continue; // Empty row.
             }
             $id = (string) ($row['dataset_id'] ?? '');
             $ref = (string) ($row['dataset_ref'] ?? '');
             $gk = $id !== '' ? "id:$id" : ($ref !== '' ? "ref:$ref" : "row:$i");
             if (!isset($groups[$gk])) {
-                $groups[$gk] = ['ref' => $ref ?: ($id ?: 'ligne ' . ($i + 2)), 'datasetId' => $id ?: null, 'rows' => [], 'meta' => [], 'points' => []];
+                $groups[$gk] = ['ref' => $ref ?: ($id ?: 'row ' . ($i + 2)), 'datasetId' => $id ?: null, 'rows' => [], 'meta' => [], 'points' => []];
             }
             $g = &$groups[$gk];
             $g['rows'][] = $i;
@@ -134,7 +133,7 @@ final class ImportService
                 'srcY' => $row['y'] ?? null,
                 'properties' => $pp,
             ];
-            // Coordonnées déjà en WGS84 fournies en x/y
+            // Coordinates already in WGS84 provided as x/y.
             $last = array_key_last($g['points']);
             $crs = mb_strtoupper((string) ($row['crs'] ?? ''));
             if (($g['points'][$last]['longitude'] ?? '') === '' && \in_array($crs, ['EPSG:4326', 'WGS84', '4326'], true)) {
@@ -176,7 +175,7 @@ final class ImportService
         return $out;
     }
 
-    /** Simulation : aucune écriture, erreurs ramenées aux numéros de ligne du fichier. */
+    /** Preview without writing; errors are mapped to spreadsheet row numbers. */
     public function preview(Site $site, array $rows, User $user): array
     {
         $result = [];
@@ -233,7 +232,7 @@ final class ImportService
                 }
             }
             if ($errors) {
-                throw ApiException::validation($errors, 'Import annulé : des jeux contiennent des erreurs');
+                throw ApiException::validation($errors, 'Import cancelled: some datasets contain errors');
             }
             $this->em->flush();
         });
@@ -243,7 +242,7 @@ final class ImportService
         ];
     }
 
-    /** Lignes au format du template pour une liste de jeux (export / modèle d'après un jeu existant). */
+    /** Return rows in template format for a list of datasets (export / template based on an existing dataset). */
     public function exportRows(Site $site, array $datasets, bool $withIds = true): array
     {
         $fields = $site->getFields();
@@ -267,7 +266,7 @@ final class ImportService
             foreach ($fields as $f) {
                 if (($f['scope'] ?? 'dataset') === 'dataset') {
                     $v = $d->getProperties()[$f['key']] ?? null;
-                    $base[$f['key']] = \is_array($v) ? implode(' ; ', $v) : (\is_bool($v) ? ($v ? 'oui' : 'non') : $v);
+                    $base[$f['key']] = \is_array($v) ? implode(' ; ', $v) : (\is_bool($v) ? ($v ? 'yes' : 'no') : $v);
                 }
             }
             foreach ($d->getPoints() as $p) {
@@ -286,7 +285,7 @@ final class ImportService
                 foreach ($fields as $f) {
                     if (($f['scope'] ?? 'dataset') === 'point') {
                         $v = $p->getProperties()[$f['key']] ?? null;
-                        $row[$f['key']] = \is_array($v) ? implode(' ; ', $v) : (\is_bool($v) ? ($v ? 'oui' : 'non') : $v);
+                        $row[$f['key']] = \is_array($v) ? implode(' ; ', $v) : (\is_bool($v) ? ($v ? 'yes' : 'no') : $v);
                     }
                 }
                 $rows[] = $row;
@@ -301,10 +300,10 @@ final class ImportService
         if ($g['datasetId']) {
             $d = $this->datasets->findOneInSite($site, $g['datasetId']);
             if (!$d) {
-                return [new Dataset($site, $user), 'update', "Jeu {$g['datasetId']} introuvable sur ce site"];
+                return [new Dataset($site, $user), 'update', "Dataset {$g['datasetId']} not found on this site"];
             }
             if (!$this->perm->canEdit($d)) {
-                return [$d, 'update', "Vous n'avez pas le droit de modifier le jeu {$g['datasetId']}"];
+                return [$d, 'update', "You are not allowed to edit dataset {$g['datasetId']}"];
             }
             return [$d, 'update', null];
         }
@@ -318,13 +317,13 @@ final class ImportService
         return $payload;
     }
 
-    /** points[3].latitude → "ligne 5 : …" */
+    /** points[3].latitude → "row 5: …" */
     private function mapErrors(array $errors, array $rows): array
     {
         $out = [];
         foreach ($errors as $k => $msg) {
             if (preg_match('/^points\[(\d+)\]\.(.+)$/', (string) $k, $m) && isset($rows[(int) $m[1]])) {
-                $out['ligne ' . ($rows[(int) $m[1]] + 2) . ' · ' . $m[2]] = $msg;
+                $out['row ' . ($rows[(int) $m[1]] + 2) . ' · ' . $m[2]] = $msg;
             } else {
                 $out[(string) $k] = $msg;
             }

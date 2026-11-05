@@ -1,7 +1,7 @@
-/** Couleurs des points selon map.colorBy (catégoriel ou continu). */
-// Ordre catégoriel fixe (palette validée daltonisme, 8 teintes) ; au-delà : « Autres » en gris.
+/** Point colors according to map.colorBy (categorical or continuous). */
+// Fixed categorical order (8-color colorblind-safe palette); remaining values are gray.
 const CATEGORICAL = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948', '#8a8f91']
-// Rampe séquentielle mono-teinte (clair → foncé)
+// Single-hue sequential ramp (light → dark)
 const RAMP = ['#b7d3f6', '#6da7ec', '#2a78d6', '#1c5cab', '#104281']
 
 function lerp(a, b, t) {
@@ -17,7 +17,7 @@ export function rampColor(t) {
   return lerp(RAMP[i], RAMP[i + 1], t * (RAMP.length - 1) - i)
 }
 
-/** Construit une échelle à partir des valeurs : {colorOf(v), legend:[{label,color}], kind} */
+/** Build a scale from values: {colorOf(v), legend:[{label,color}], kind}. */
 export function buildScale(values, field, { grouping = true } = {}) {
   const vals = values.filter((v) => v !== null && v !== undefined && v !== '')
   if (!vals.length) return { colorOf: () => null, legend: [], kind: 'none' }
@@ -29,7 +29,7 @@ export function buildScale(values, field, { grouping = true } = {}) {
     const legend = [0, 0.25, 0.5, 0.75, 1].map((t) => ({ label: (min + t * span).toLocaleString('fr-FR', { maximumFractionDigits: grouping ? 1 : 0, useGrouping: grouping }), color: rampColor(t) }))
     return { colorOf: (v) => (v === null || v === undefined ? null : rampColor((Number(v) - min) / span)), legend, kind: 'ramp' }
   }
-  // La couleur suit la valeur (ordre de la liste du champ), jamais son rang dans la vue
+  // Color follows the value (field option order), never its rank in the view.
   const order = field?.options?.length ? [...field.options] : [...new Set(vals.map(String))].sort((a, b) => a.localeCompare(b, 'fr'))
   const other = CATEGORICAL[CATEGORICAL.length - 1]
   const map = {}

@@ -9,7 +9,7 @@
         <span v-if="period">{{ period }}</span>
         <span v-if="authors">{{ authors }}</span>
       </p>
-      <v-alert v-if="ds.status === 'rejected' && ds.reviewComment" type="warning" variant="tonal" density="compact" class="mt-2" title="Commentaire du responsable">
+      <v-alert v-if="ds.status === 'rejected' && ds.reviewComment" type="warning" variant="tonal" density="compact" class="mt-2" title="Manager's comment">
         {{ ds.reviewComment }}
       </v-alert>
       <div v-if="ds.doi || ds.ordarUrl" class="gs-detail__ordar">
@@ -335,7 +335,7 @@ async function downloadFile(f) {
     const url = URL.createObjectURL(res.data)
     const a = document.createElement('a')
     a.href = url
-    a.download = filenameFromHeaders(res.headers, f.originalName ?? f.name ?? 'fichier')
+    a.download = filenameFromHeaders(res.headers, f.originalName ?? f.name ?? 'file')
     document.body.appendChild(a)
     a.click()
     a.remove()

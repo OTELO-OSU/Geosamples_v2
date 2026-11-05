@@ -1,4 +1,4 @@
-# Intégration continue : tests backend (PHPUnit + PostgreSQL) et compilation du front.
+# Continuous integration: backend tests (PHPUnit + PostgreSQL) and frontend build.
 stages: [test, build]
 
 backend:

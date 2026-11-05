@@ -46,7 +46,7 @@ export function buildLadder(observations, { onSelect, fmtDate, fmtElevation, sel
   const root = document.createElement('div')
   root.className = 'gs-ladder'
   const title = document.createElement('strong')
-  title.textContent = `${obs.length} observation${obs.length > 1 ? 's' : ''} à cet emplacement`
+  title.textContent = `${obs.length} observation${obs.length > 1 ? 's' : ''} at this location`
   root.appendChild(title)
 
   const maxText = Math.max(0, ...obs.map((o) => oneLine(o).length))
@@ -66,7 +66,7 @@ export function buildLadder(observations, { onSelect, fmtDate, fmtElevation, sel
 
   const scroll = document.createElement('div')
   scroll.className = 'gs-ladder__scroll'
-  const sv = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': 'Chronologie et altitude des observations' })
+  const sv = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': 'Observation timeline and elevation' })
 
   // Vertical rail = altitude
   if (hasZ) el('line', { x1: L, x2: L, y1: T - 8, y2: T + ih + 8, class: 'gs-ladder__rail' }, sv)

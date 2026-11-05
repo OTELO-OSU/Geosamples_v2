@@ -44,7 +44,7 @@ login hostname must be used.
     ShibUseHeaders On
     Require valid-user
     # Shared secret: the backend rejects headers that do not originate here
-    RequestHeader set X-Shib-Secret "même-valeur-que-SHIB_SHARED_SECRET"
+    RequestHeader set X-Shib-Secret "same-value-as-SHIB_SHARED_SECRET"
 </Location>
 ```
 

@@ -9,7 +9,7 @@ use App\Entity\Site;
 use App\Entity\SiteMembership;
 use App\Entity\User;
 
-/** Sérialisation JSON des entités (vues publique / gestion). */
+/** JSON serialization of entities (public and management views). */
 final class Presenter
 {
     public function __construct(private Permissions $perm) {}

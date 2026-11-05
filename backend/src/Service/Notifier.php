@@ -10,7 +10,7 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 
-/** Notifications e-mail (best-effort : un échec d'envoi n'interrompt jamais l'action). */
+/** Email notifications (best effort: sending failures never interrupt the action). */
 final class Notifier
 {
     public function __construct(
@@ -24,8 +24,8 @@ final class Notifier
     {
         $site = $d->getSite();
         $to = array_map(static fn (SiteMembership $m) => $m->getUser()->getEmail(), $this->memberships->findManagers($site));
-        $this->send($to, "[{$site->getTitle()}] Jeu de données à valider",
-            sprintf("Le jeu « %s » a été soumis par %s et attend votre validation.\n\nIl est visible dans l'onglet « Validation » du site.",
+        $this->send($to, "[{$site->getTitle()}] Dataset pending review",
+            sprintf("The dataset “%s” was submitted by %s and is awaiting your review.\n\nIt is available in the site's “Pending review” tab.",
                 $d->getTitle(), $d->getOwner()?->getDisplayName() ?? '—'));
     }
 
@@ -36,23 +36,28 @@ final class Notifier
         }
         $site = $d->getSite();
         $body = $accepted
-            ? sprintf("Votre jeu de données « %s » est désormais publié sur %s.", $d->getTitle(), $site->getTitle())
-            : sprintf("Votre jeu de données « %s » n'a pas été validé.\n\nCommentaire du responsable :\n%s", $d->getTitle(), $d->getReviewComment() ?: '—');
-        $this->send([$d->getOwner()->getEmail()], "[{$site->getTitle()}] " . ($accepted ? 'Jeu publié' : 'Jeu à revoir'), $body);
+            ? sprintf("Your dataset “%s” has been published on %s.", $d->getTitle(), $site->getTitle())
+            : sprintf("Your dataset “%s” was not approved.\n\nManager's comment:\n%s", $d->getTitle(), $d->getReviewComment() ?: '—');
+        $this->send([$d->getOwner()->getEmail()], "[{$site->getTitle()}] " . ($accepted ? 'Dataset published' : 'Dataset needs revision'), $body);
     }
 
     public function joinRequested(Site $site, SiteMembership $m): void
     {
         $to = array_map(static fn (SiteMembership $x) => $x->getUser()->getEmail(), $this->memberships->findManagers($site));
-        $this->send($to, "[{$site->getTitle()}] Demande de participation",
-            sprintf("%s (%s) demande à contribuer au site.\n\nMessage : %s\n\nGérez les demandes dans l'onglet « Membres ».",
+        $this->send($to, "[{$site->getTitle()}] Membership request",
+            sprintf("%s (%s) requested access to contribute to the site.\n\nMessage: %s\n\nManage requests in the “Members” tab.",
                 $m->getUser()->getDisplayName(), $m->getUser()->getEmail(), $m->getMessage() ?: '—'));
     }
 
     public function membershipGranted(SiteMembership $m): void
     {
-        $this->send([$m->getUser()->getEmail()], "[{$m->getSite()->getTitle()}] Accès accordé",
-            sprintf("Vous êtes désormais « %s » sur le site %s.", $m->getRole(), $m->getSite()->getTitle()));
+        $role = match ($m->getRole()) {
+            SiteMembership::ROLE_MANAGER => 'site manager',
+            SiteMembership::ROLE_CONTRIBUTOR => 'contributor',
+            default => $m->getRole(),
+        };
+        $this->send([$m->getUser()->getEmail()], "[{$m->getSite()->getTitle()}] Access granted",
+            sprintf("You are now a %s on the site %s.", $role, $m->getSite()->getTitle()));
     }
 
     private function send(array $to, string $subject, string $text): void

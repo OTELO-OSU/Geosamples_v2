@@ -8,14 +8,14 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsCommand(name: 'app:auth:purge', description: 'Supprime les refresh tokens expirés (à lancer par cron)')]
+#[AsCommand(name: 'app:auth:purge', description: 'Delete expired refresh tokens (run from cron)')]
 final class PurgeTokensCommand extends Command
 {
     public function __construct(private AuthService $auth) { parent::__construct(); }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $output->writeln($this->auth->purgeExpired() . ' jeton(s) supprimé(s)');
+        $output->writeln($this->auth->purgeExpired() . ' token(s) deleted');
         return Command::SUCCESS;
     }
 }

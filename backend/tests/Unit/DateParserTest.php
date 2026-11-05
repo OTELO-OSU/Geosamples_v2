@@ -25,6 +25,6 @@ final class DateParserTest extends TestCase
     public function testInvalidDateThrows(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        DateParser::parse('pas une date');
+        DateParser::parse('not a date');
     }
 }

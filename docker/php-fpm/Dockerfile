@@ -1,4 +1,4 @@
-# Backend Symfony (même socle qu'ORDaR v2 : PHP 8.3 FPM Alpine + pdo_pgsql)
+# Symfony backend (same foundation as ORDaR v2: PHP 8.3 FPM Alpine + pdo_pgsql)
 FROM composer:2 AS composer
 
 FROM php:fpm-alpine

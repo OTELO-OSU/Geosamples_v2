@@ -1,10 +1,10 @@
 /**
- * Client HTTP de l'API.
+ * API HTTP client.
  *
- * Comme dans ORDaR v2 : le JWT d'accès est gardé en mémoire uniquement ; la session
- * est restaurée via le cookie HttpOnly de refresh (rotation à chaque usage). Les
- * rafraîchissements concurrents sont mutualisés (une seule requête /refresh en vol),
- * sinon la rotation invaliderait les requêtes parallèles.
+ * As in ORDaR v2: the access JWT is kept in memory only; the session is restored
+ * using the HttpOnly refresh cookie (rotated on each use). Concurrent refreshes
+ * are consolidated into a single in-flight /refresh request, otherwise rotation
+ * would invalidate parallel requests.
  */
 import axios from 'axios'
 
@@ -59,12 +59,12 @@ api.interceptors.response.use(
   },
 )
 
-/** Message lisible depuis une erreur d'API (avec détails de validation éventuels). */
-export function errorMessage(e, fallback = 'Une erreur est survenue') {
+/** Human-readable message from an API error (including optional validation details). */
+export function errorMessage(e, fallback = 'An error occurred') {
   const d = e?.response?.data
   if (d?.error) return d.error
   if (d?.message) return d.message
-  if (e?.message === 'Network Error') return 'Serveur injoignable'
+  if (e?.message === 'Network Error') return 'Server unreachable'
   return fallback
 }
 

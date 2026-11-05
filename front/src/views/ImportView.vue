@@ -4,7 +4,7 @@
     <p class="text-muted mt-2 gs-prose">
       Each spreadsheet row corresponds to a sampling point. Rows with the same
       “dataset_ref” form one dataset. To edit existing datasets, export them from
-      <router-link to="/espace">My data</router-link>, edit the file, then re-import it.
+      <router-link to="/workspace">My data</router-link>, edit the file, then re-import it.
     </p>
     <div v-if="site.importTemplate?.instructions" class="gs-panel pa-4 mt-4 gs-prose" v-html="markdown(site.importTemplate.instructions)" />
 
@@ -72,7 +72,7 @@
                 <td>{{ lines(d.lines) }}</td>
                 <td>
                   <span v-if="isEmpty(d.errors)" class="text-success"><v-icon size="16">mdi-check</v-icon> OK</span>
-                  <ul v-else class="gs-errs"><li v-for="(m, k) in d.errors" :key="k"><template v-if="String(k).startsWith('ligne')"><strong>{{ String(k).split(' · ')[0] }}</strong>: </template>{{ m }}</li></ul>
+                  <ul v-else class="gs-errs"><li v-for="(m, k) in d.errors" :key="k"><template v-if="String(k).startsWith('row ')"><strong>{{ String(k).split(' · ')[0] }}</strong>: </template>{{ m }}</li></ul>
                 </td>
               </tr>
             </tbody>
@@ -93,7 +93,7 @@
           {{ done.status === 'published' ? 'published' : done.status === 'submitted' ? 'pending review' : 'saved as drafts' }}.
         </v-alert>
         <div class="d-flex ga-2 mt-4">
-          <v-btn color="primary" to="/espace">View my data</v-btn>
+          <v-btn color="primary" to="/workspace">View my data</v-btn>
           <v-btn variant="text" @click="reset">Import another file</v-btn>
         </div>
       </template>
@@ -164,7 +164,7 @@ async function fromExisting() {
   dl.value = 'from'
   try {
     const { data } = await api.get(`/api/sites/${site.value.slug}/export`, { params: { ids: fromUuid.value, template: 1 } })
-    await downloadTable({ columns: data.columns, rows: data.rows, filename: `${site.value.slug}-modele-${fromUuid.value.slice(-8)}`, title: site.value.title })
+    await downloadTable({ columns: data.columns, rows: data.rows, filename: `${site.value.slug}-template-${fromUuid.value.slice(-8)}`, title: site.value.title })
   } catch (e) { ui.error(errorMessage(e)) } finally { dl.value = null }
 }
 
@@ -178,7 +178,7 @@ async function read(f) {
     if (!table.value.rows.length) { ui.error('The file contains no data rows'); table.value = null; return }
     mapping.value = autoMapping(table.value.headers, columns.value)
   } catch (e) {
-    ui.error(`Lecture impossible : ${e.message}`)
+    ui.error(`Unable to read file: ${e.message}`)
   }
 }
 

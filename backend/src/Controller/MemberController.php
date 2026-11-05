@@ -15,11 +15,11 @@ use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * GET    /api/sites/{slug}/members          membres et demandes (responsable)
- * POST   /api/sites/{slug}/members          ajout par e-mail {email, role, firstname?, lastname?} (responsable)
- * PATCH  /api/sites/{slug}/members/{id}     {role?, status?} (responsable)
- * DELETE /api/sites/{slug}/members/{id}     (responsable, ou soi-même pour quitter)
- * POST   /api/sites/{slug}/join             demande de participation {message} (connecté)
+ * GET    /api/sites/{slug}/members          members and requests (manager)
+ * POST   /api/sites/{slug}/members          add by email {email, role, firstname?, lastname?} (manager)
+ * PATCH  /api/sites/{slug}/members/{id}     {role?, status?} (manager)
+ * DELETE /api/sites/{slug}/members/{id}     (manager, or self to leave)
+ * POST   /api/sites/{slug}/join             membership request {message} (signed in)
  */
 final class MemberController extends ApiController
 {
@@ -47,10 +47,10 @@ final class MemberController extends ApiController
         $d = $this->body($request);
         $email = mb_strtolower(trim((string) ($d['email'] ?? '')));
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw ApiException::validation(['email' => 'E-mail invalide']);
+            throw ApiException::validation(['email' => 'Invalid email']);
         }
         $role = $this->role($d['role'] ?? SiteMembership::ROLE_CONTRIBUTOR);
-        // Un compte pré-créé sera rattaché à l'identité fédérée lors de la 1re connexion (même e-mail).
+        // A pre-created account is linked to the federated identity at first sign-in (same email).
         $user = $this->users->findOneByEmail($email);
         if (!$user) {
             $user = (new User($email))->setFirstname((string) ($d['firstname'] ?? ''))->setLastname((string) ($d['lastname'] ?? ''));
@@ -84,7 +84,7 @@ final class MemberController extends ApiController
         }
         if (isset($d['status'])) {
             if (!\in_array($d['status'], [SiteMembership::STATUS_ACTIVE, SiteMembership::STATUS_PENDING], true)) {
-                throw new ApiException('Statut inconnu');
+                throw new ApiException('Unknown status');
             }
             $m->setStatus($d['status']);
         }
@@ -107,7 +107,7 @@ final class MemberController extends ApiController
         $self = $this->perm->user()?->getId() === $m->getUser()->getId();
         $this->perm->denyUnless($self || $this->perm->canManageSite($site));
         if ($m->isManager() && \count($this->memberships->findManagers($site)) <= 1 && !$this->perm->isAdmin()) {
-            throw new ApiException('Le site doit conserver au moins un responsable', 409);
+            throw new ApiException('The site must have at least one manager', 409);
         }
         $this->em->remove($m);
         $this->em->flush();
@@ -120,10 +120,10 @@ final class MemberController extends ApiController
         $site = $this->site($slug);
         $user = $this->perm->requireUser();
         if (!$site->setting('allowJoinRequests')) {
-            throw ApiException::forbidden('Ce site n\'accepte pas de demandes de participation');
+            throw ApiException::forbidden('This site does not accept membership requests');
         }
         if (!$this->joinRequestLimiter->create('u' . $user->getId())->consume()->isAccepted()) {
-            throw new ApiException('Trop de demandes, réessayez plus tard', 429);
+            throw new ApiException('Too many requests; try again later', 429);
         }
         $m = $user->getMembership($site);
         if ($m) {
@@ -140,7 +140,7 @@ final class MemberController extends ApiController
     private function role(mixed $r): string
     {
         if (!\in_array($r, SiteMembership::ROLES, true)) {
-            throw ApiException::validation(['role' => 'Rôle attendu : responsable ou utilisateur']);
+            throw ApiException::validation(['role' => 'Expected role: manager or user']);
         }
         return $r;
     }
@@ -152,7 +152,7 @@ final class MemberController extends ApiController
         }
         $managers = array_filter($this->memberships->findManagers($changed->getSite()), static fn ($m) => $m->isManager());
         if (!$managers) {
-            throw new ApiException('Le site doit conserver au moins un responsable', 409);
+            throw new ApiException('The site must have at least one manager', 409);
         }
     }
 }

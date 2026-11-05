@@ -10,12 +10,12 @@ use Doctrine\DBAL\Connection;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Recherche, carte (regroupement selon le zoom), facettes et export.
+ * Search, map (clustering by zoom), facets, and export.
  *
- * Tout est fait en SQL natif PostgreSQL (pas d'Elasticsearch) :
- *  - filtres au niveau du jeu (texte, mots-clés, champs spécifiques, statut)
- *  - filtres au niveau du point (emprise, altitude, période, champs "point")
- *  - regroupement en grille Web-Mercator dont la taille de maille dépend du zoom
+ * Everything uses native PostgreSQL SQL (no Elasticsearch):
+ *  - dataset-level filters (text, keywords, custom fields, status)
+ *  - point-level filters (extent, elevation, period, "point" fields)
+ *  - clustering on a Web Mercator grid whose cell size depends on zoom
  */
 final class DatasetQuery
 {
@@ -66,7 +66,7 @@ final class DatasetQuery
         return array_values(array_filter(array_map(fn ($x) => trim((string) $x), $v), static fn ($x) => $x !== ''));
     }
 
-    /** Tableau JSONB sûr : '[]' si la clé est absente ou n'est pas un tableau. */
+    /** Safe JSONB array: '[]' if the key is missing or is not an array. */
     private function jsonArr(string $expr): string
     {
         return "(CASE WHEN jsonb_typeof($expr) = 'array' THEN $expr ELSE '[]'::jsonb END)";
@@ -84,7 +84,7 @@ final class DatasetQuery
         $params = ['site' => $site->getId()];
         $types = [];
 
-        // Portée de la requête
+        // Query scope.
         $user = $this->perm->user();
         switch ($f['scope']) {
             case 'mine':
@@ -102,7 +102,7 @@ final class DatasetQuery
         }
         if ($f['status'] && $f['scope'] !== 'public') {
             if (!\in_array($f['status'], Dataset::STATUSES, true)) {
-                throw new ApiException('Statut inconnu');
+                throw new ApiException('Unknown status');
             }
             $dw[] = 'd.status = :status';
             $params['status'] = $f['status'];
@@ -141,7 +141,7 @@ final class DatasetQuery
             )";
         }
 
-        // Champs spécifiques filtrables
+        // Filterable custom fields.
         foreach ($site->getFields() as $field) {
             $key = $field['key'];
             if (empty($field['filter']) || !\array_key_exists($key, $f['f'])) {
@@ -195,7 +195,7 @@ final class DatasetQuery
             }
         }
 
-        // Niveau point : emprise, altitude, période
+        // Point level: extent, elevation, period.
         if ($f['bbox']) {
             $b = array_map('floatval', explode(',', (string) $f['bbox']));
             if (\count($b) === 4) {
@@ -483,7 +483,7 @@ final class DatasetQuery
         }, $rows);
     }
 
-    /** Valeur servant à colorer les points (map.colorBy du site). */
+    /** Value used to color points (site map.colorBy). */
     private function colorExpr(Site $site): array
     {
         $by = $site->getMap()['colorBy'] ?? 'none';
@@ -521,7 +521,7 @@ final class DatasetQuery
             $params, $types
         );
 
-        // Histogramme temporel : par année, ou par mois si la plage couvre moins de 3 ans
+        // Time histogram: by year, or by month if the range spans less than 3 years.
         $histogram = [];
         $unit = 'year';
         if ($stats['tmin'] && $stats['tmax']) {

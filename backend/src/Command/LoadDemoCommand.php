@@ -20,12 +20,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
- * Charge deux sites de démonstration et des données FICTIVES, pour essayer
- * l'application : « nometal » (échantillons géologiques ponctuels, nombreux → regroupement
- * côté serveur) et « orne » (stations de suivi avec séries temporelles).
- * Les champs sont des exemples à adapter au contenu réel des projets.
+ * Load two demo sites and FICTIONAL data for trying the application:
+ * "nometal" (many individual geological samples, clustered server-side) and
+ * "orne" (monitoring stations with time series).
+ * Fields are examples to adapt to actual project content.
  */
-#[AsCommand(name: 'app:demo:load', description: 'Charge des sites et données de démonstration (fictives)')]
+#[AsCommand(name: 'app:demo:load', description: 'Load demo sites and data (fictional)')]
 final class LoadDemoCommand extends Command
 {
     public function __construct(
@@ -40,8 +40,8 @@ final class LoadDemoCommand extends Command
 
     protected function configure(): void
     {
-        $this->addOption('password', null, InputOption::VALUE_REQUIRED, 'Mot de passe des comptes de démo', 'demo-geosamples')
-            ->addOption('samples', null, InputOption::VALUE_REQUIRED, 'Nombre d\'échantillons nometal', '1800');
+        $this->addOption('password', null, InputOption::VALUE_REQUIRED, 'Password for demo accounts', 'demo-geosamples')
+            ->addOption('samples', null, InputOption::VALUE_REQUIRED, 'Number of nometal samples', '1800');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -51,43 +51,43 @@ final class LoadDemoCommand extends Command
         $pwd = (string) $input->getOption('password');
 
         $admin = $this->user('admin@example.org', 'Admin', 'GeoSamples', $pwd, true);
-        $respN = $this->user('responsable.nometal@example.org', 'Claire', 'Martin', $pwd);
-        $respO = $this->user('responsable.orne@example.org', 'Hugo', 'Bernard', $pwd);
-        $contrib = $this->user('contributeur@example.org', 'Léa', 'Petit', $pwd);
+        $respN = $this->user('manager.nometal@example.org', 'Claire', 'Martin', $pwd);
+        $respO = $this->user('manager.orne@example.org', 'Hugo', 'Bernard', $pwd);
+        $contrib = $this->user('contributor@example.org', 'Lea', 'Petit', $pwd);
 
-        $nometal = $this->site('nometal', 'NOMETAL', 'Échantillons géologiques et géochimiques',
-            "Carte des échantillons collectés dans le cadre du projet. **Données fictives de démonstration.**\n\nCliquez sur un point pour consulter le jeu de données.",
+        $nometal = $this->site('nometal', 'NOMETAL', 'Geological and geochemical samples',
+            "Map of samples collected as part of the project. **Fictional demo data.**\n\nClick a point to view the dataset.",
             ['nometal.otelo.univ-lorraine.fr', 'nometal.localhost'],
             ['primary' => '#7A4E2D', 'secondary' => '#3B3A36', 'accent' => '#C9822B'],
             ['center' => [48.45, 6.4], 'zoom' => 8, 'basemaps' => ['osm', 'opentopo', 'ign-ortho', 'esri-imagery'], 'defaultBasemap' => 'opentopo', 'clusterMaxZoom' => 13, 'colorBy' => 'lithology'],
             [
-                ['key' => 'sample_type', 'label' => "Type d'échantillon", 'type' => 'select', 'options' => ['Carotte', 'Bloc', 'Pulpe', 'Poudre', 'Lame mince'], 'required' => true, 'filter' => 'select', 'popup' => true, 'group' => 'Échantillon'],
-                ['key' => 'lithology', 'label' => 'Lithologie', 'type' => 'select', 'options' => ['Granite', 'Grès', 'Calcaire', 'Argilite', 'Basalte', 'Schiste', 'Latérite'], 'filter' => 'select', 'popup' => true, 'group' => 'Géologie'],
-                ['key' => 'ore_type', 'label' => 'Type de minéralisation', 'type' => 'multiselect', 'options' => ['Sulfures', 'Oxydes', 'Silicates', 'Carbonates', 'Aucune'], 'filter' => 'select', 'group' => 'Géologie'],
-                ['key' => 'alteration', 'label' => "Degré d'altération", 'type' => 'select', 'options' => ['Sain', 'Faible', 'Modéré', 'Fort'], 'filter' => 'select', 'group' => 'Géologie'],
-                ['key' => 'host_age', 'label' => 'Âge de l\'encaissant', 'type' => 'text', 'group' => 'Géologie'],
+                ['key' => 'sample_type', 'label' => 'Sample type', 'type' => 'select', 'options' => ['Core', 'Block', 'Pulp', 'Powder', 'Thin section'], 'required' => true, 'filter' => 'select', 'popup' => true, 'group' => 'Sample'],
+                ['key' => 'lithology', 'label' => 'Lithology', 'type' => 'select', 'options' => ['Granite', 'Sandstone', 'Limestone', 'Argillite', 'Basalt', 'Schist', 'Laterite'], 'filter' => 'select', 'popup' => true, 'group' => 'Geology'],
+                ['key' => 'ore_type', 'label' => 'Mineralization type', 'type' => 'multiselect', 'options' => ['Sulfides', 'Oxides', 'Silicates', 'Carbonates', 'None'], 'filter' => 'select', 'group' => 'Geology'],
+                ['key' => 'alteration', 'label' => 'Degree of alteration', 'type' => 'select', 'options' => ['Fresh', 'Weak', 'Moderate', 'Strong'], 'filter' => 'select', 'group' => 'Geology'],
+                ['key' => 'host_age', 'label' => 'Host rock age', 'type' => 'text', 'group' => 'Geology'],
                 ['key' => 'ni_ppm', 'label' => 'Nickel', 'unit' => 'ppm', 'type' => 'number', 'filter' => 'range', 'popup' => true, 'group' => 'Mesures'],
                 ['key' => 'co_ppm', 'label' => 'Cobalt', 'unit' => 'ppm', 'type' => 'number', 'filter' => 'range', 'group' => 'Mesures'],
-                ['key' => 'method', 'label' => "Méthode d'analyse", 'type' => 'select', 'options' => ['ICP-MS', 'ICP-OES', 'XRF', 'LA-ICP-MS', 'EMPA'], 'filter' => 'select', 'group' => 'Mesures'],
-                ['key' => 'storage', 'label' => 'Lieu de stockage', 'type' => 'text', 'group' => 'Échantillon', 'help' => 'Lithothèque, laboratoire…'],
-                ['key' => 'core_depth', 'label' => 'Profondeur sur carotte', 'unit' => 'm', 'type' => 'number', 'scope' => 'point', 'group' => 'Échantillon'],
+                ['key' => 'method', 'label' => 'Analysis method', 'type' => 'select', 'options' => ['ICP-MS', 'ICP-OES', 'XRF', 'LA-ICP-MS', 'EMPA'], 'filter' => 'select', 'group' => 'Measurements'],
+                ['key' => 'storage', 'label' => 'Storage location', 'type' => 'text', 'group' => 'Sample', 'help' => 'Core library, laboratory...'],
+                ['key' => 'core_depth', 'label' => 'Core depth', 'unit' => 'm', 'type' => 'number', 'scope' => 'point', 'group' => 'Sample'],
             ],
             ['moderation' => true, 'verticalDatum' => 'NGF-IGN69', 'contactEmail' => 'contact-nometal@example.org']
         );
-        $orne = $this->site('orne', 'ORNE', 'Suivi de la qualité des eaux du bassin de l\'Orne',
-            "Stations de prélèvement et séries temporelles. **Données fictives de démonstration.**\n\nUtilisez la frise temporelle pour filtrer par période.",
+        $orne = $this->site('orne', 'ORNE', 'Water quality monitoring in the Orne basin',
+            "Sampling stations and time series. **Fictional demo data.**\n\nUse the timeline to filter by period.",
             ['orne.otelo.univ-lorraine.fr', 'orne.localhost'],
             ['primary' => '#0F5E7A', 'secondary' => '#28434F', 'accent' => '#2BA39A'],
             ['center' => [49.22, 5.95], 'zoom' => 10, 'basemaps' => ['osm', 'ign-plan', 'ign-ortho', 'opentopo'], 'defaultBasemap' => 'ign-plan', 'clusterMaxZoom' => 14, 'colorBy' => 'year'],
             [
-                ['key' => 'station_type', 'label' => 'Type de station', 'type' => 'select', 'options' => ['Rivière', 'Affluent', 'Piézomètre', 'Rejet'], 'required' => true, 'filter' => 'select', 'popup' => true],
-                ['key' => 'water_body', 'label' => "Masse d'eau", 'type' => 'select', 'options' => ['Orne amont', 'Orne aval', 'Woigot', 'Conroy', 'Yron'], 'filter' => 'select', 'popup' => true],
-                ['key' => 'monitoring', 'label' => 'Paramètres suivis', 'type' => 'multiselect', 'options' => ['Physico-chimie', 'Métaux', 'Nutriments', 'Hydrobiologie', 'Sédiments'], 'filter' => 'select'],
-                ['key' => 'temperature', 'label' => 'Température', 'unit' => '°C', 'type' => 'number', 'scope' => 'point', 'filter' => 'range'],
+                ['key' => 'station_type', 'label' => 'Station type', 'type' => 'select', 'options' => ['River', 'Tributary', 'Piezometer', 'Outfall'], 'required' => true, 'filter' => 'select', 'popup' => true],
+                ['key' => 'water_body', 'label' => 'Water body', 'type' => 'select', 'options' => ['Upper Orne', 'Lower Orne', 'Woigot', 'Conroy', 'Yron'], 'filter' => 'select', 'popup' => true],
+                ['key' => 'monitoring', 'label' => 'Monitoring parameters', 'type' => 'multiselect', 'options' => ['Physicochemical', 'Metals', 'Nutrients', 'Hydrobiology', 'Sediments'], 'filter' => 'select'],
+                ['key' => 'temperature', 'label' => 'Temperature', 'unit' => '°C', 'type' => 'number', 'scope' => 'point', 'filter' => 'range'],
                 ['key' => 'ph', 'label' => 'pH', 'type' => 'number', 'scope' => 'point', 'filter' => 'range'],
-                ['key' => 'conductivity', 'label' => 'Conductivité', 'unit' => 'µS/cm', 'type' => 'number', 'scope' => 'point', 'filter' => 'range'],
+                ['key' => 'conductivity', 'label' => 'Conductivity', 'unit' => 'µS/cm', 'type' => 'number', 'scope' => 'point', 'filter' => 'range'],
                 ['key' => 'nitrates', 'label' => 'Nitrates', 'unit' => 'mg/L', 'type' => 'number', 'scope' => 'point'],
-                ['key' => 'operator', 'label' => 'Opérateur', 'type' => 'text'],
+                ['key' => 'operator', 'label' => 'Operator', 'type' => 'text'],
             ],
             ['moderation' => false, 'verticalDatum' => 'NGF-IGN69', 'contactEmail' => 'contact-orne@example.org']
         );
@@ -106,25 +106,25 @@ final class LoadDemoCommand extends Command
         $this->em->clear();
         $o = $this->loadOrne($orne, [$respO, $contrib]);
 
-        $io->success("Démo chargée : $n jeux sur nometal, $o stations sur orne.");
-        $io->table(['Compte', 'Rôle'], [
-            ['admin@example.org', 'administrateur'],
-            ['responsable.nometal@example.org', 'responsable nometal'],
-            ['responsable.orne@example.org', 'responsable orne'],
-            ['contributeur@example.org', 'utilisateur (nometal, orne)'],
+        $io->success("Demo loaded: $n datasets on nometal, $o stations on orne.");
+        $io->table(['Account', 'Role'], [
+            ['admin@example.org', 'administrator'],
+            ['manager.nometal@example.org', 'nometal manager'],
+            ['manager.orne@example.org', 'orne manager'],
+            ['contributor@example.org', 'contributor (nometal, orne)'],
         ]);
-        $io->writeln("Mot de passe : $pwd");
+        $io->writeln("Password: $pwd");
         return Command::SUCCESS;
     }
 
     private function loadNometal(Site $site, array $owners, int $count): int
     {
-        $lith = ['Granite', 'Grès', 'Calcaire', 'Argilite', 'Basalte', 'Schiste', 'Latérite'];
-        $types = ['Carotte', 'Bloc', 'Pulpe', 'Poudre', 'Lame mince'];
-        $ores = ['Sulfures', 'Oxydes', 'Silicates', 'Carbonates', 'Aucune'];
-        $alt = ['Sain', 'Faible', 'Modéré', 'Fort'];
+        $lith = ['Granite', 'Sandstone', 'Limestone', 'Argillite', 'Basalt', 'Schist', 'Laterite'];
+        $types = ['Core', 'Block', 'Pulp', 'Powder', 'Thin section'];
+        $ores = ['Sulfides', 'Oxides', 'Silicates', 'Carbonates', 'None'];
+        $alt = ['Fresh', 'Weak', 'Moderate', 'Strong'];
         $methods = ['ICP-MS', 'ICP-OES', 'XRF', 'LA-ICP-MS', 'EMPA'];
-        // Quelques secteurs de prélèvement (centres fictifs en Lorraine / Vosges)
+        // A few sampling areas (fictional centers in Lorraine / Vosges).
         $areas = [[48.07, 6.88, 0.12, 650], [48.30, 7.05, 0.10, 800], [48.69, 6.18, 0.15, 230], [49.10, 6.10, 0.12, 200], [48.55, 5.75, 0.2, 350], [47.95, 6.55, 0.08, 900]];
         $statuses = array_merge(array_fill(0, 18, Dataset::STATUS_PUBLISHED), [Dataset::STATUS_SUBMITTED, Dataset::STATUS_DRAFT]);
         for ($i = 1; $i <= $count; $i++) {
@@ -135,11 +135,11 @@ final class LoadDemoCommand extends Command
             $type = $types[mt_rand(0, \count($types) - 1)];
             $date = (new \DateTimeImmutable('2014-03-01'))->modify('+' . mt_rand(0, 3800) . ' days');
             $d = new Dataset($site, $owners[$i % 2]);
-            $d->setTitle(sprintf('Échantillon NM-%04d — %s (%s)', $i, mb_strtolower($l), mb_strtolower($type)))
-              ->setDescription("Échantillon de $l prélevé lors de la campagne " . $date->format('Y') . '. Données fictives générées pour la démonstration.')
-              ->setKeywords(array_values(array_unique([$l, $type, 'géochimie', mt_rand(0, 1) ? 'nickel' : 'cobalt'])))
+            $d->setTitle(sprintf('Sample NM-%04d — %s (%s)', $i, mb_strtolower($l), mb_strtolower($type)))
+              ->setDescription("Sample of $l collected during the " . $date->format('Y') . ' campaign. Fictional data generated for the demo.')
+              ->setKeywords(array_values(array_unique([$l, $type, 'geochemistry', mt_rand(0, 1) ? 'nickel' : 'cobalt'])))
               ->setAuthors([['name' => $owners[$i % 2]->getDisplayName(), 'affiliation' => 'GeoRessources']])
-              ->setLicense('CC-BY-4.0')->setLanguage('fr')
+              ->setLicense('CC-BY-4.0')->setLanguage('en')
               ->setAccessRight(mt_rand(0, 9) ? Dataset::ACCESS_OPEN : Dataset::ACCESS_RESTRICTED)
               ->setTemporalStart($date)
               ->setProperties(array_filter([
@@ -147,10 +147,10 @@ final class LoadDemoCommand extends Command
                   'lithology' => $l,
                   'ore_type' => [$ores[mt_rand(0, 4)]],
                   'alteration' => $alt[mt_rand(0, 3)],
-                  'ni_ppm' => round(abs($this->gauss()) * ($l === 'Latérite' ? 9000 : 400) + 5, 1),
+                  'ni_ppm' => round(abs($this->gauss()) * ($l === 'Laterite' ? 9000 : 400) + 5, 1),
                   'co_ppm' => round(abs($this->gauss()) * 80 + 1, 1),
                   'method' => $methods[mt_rand(0, 4)],
-                  'storage' => mt_rand(0, 1) ? 'Lithothèque OTELo' : null,
+                  'storage' => mt_rand(0, 1) ? 'OTELo core library' : null,
               ], static fn ($v) => $v !== null))
               ->setStatus($statuses[$i % \count($statuses)]);
             $p = (new SamplingPoint(round($lon, 6), round($lat, 6)))
@@ -158,7 +158,7 @@ final class LoadDemoCommand extends Command
                 ->setElevation(round(max(150, $a[3] + $this->gauss() * 120), 1))
                 ->setVerticalDatum('NGF-IGN69')
                 ->setObservedAt($date);
-            if ($type === 'Carotte') {
+            if ($type === 'Core') {
                 $p->setProperties(['core_depth' => round(mt_rand(10, 3000) / 10, 1)]);
             }
             $d->addPoint($p);
@@ -178,23 +178,23 @@ final class LoadDemoCommand extends Command
     {
         $site = $this->em->find(Site::class, $site->getId());
         $owners = array_map(fn (User $u) => $this->em->find(User::class, $u->getId()), $owners);
-        // Tracé approximatif de l'Orne (amont → confluence avec la Moselle) — fictif
+        // Approximate course of the Orne (upstream → confluence with the Moselle) — fictional.
         $river = [[49.105, 5.645, 225], [49.140, 5.720, 210], [49.170, 5.800, 200], [49.200, 5.870, 190], [49.230, 5.930, 180],
                   [49.245, 5.990, 175], [49.255, 6.050, 170], [49.265, 6.110, 165], [49.270, 6.160, 160], [49.285, 6.195, 158]];
-        $bodies = ['Orne amont', 'Orne amont', 'Orne amont', 'Woigot', 'Orne aval', 'Conroy', 'Orne aval', 'Yron', 'Orne aval', 'Orne aval'];
+        $bodies = ['Upper Orne', 'Upper Orne', 'Upper Orne', 'Woigot', 'Lower Orne', 'Conroy', 'Lower Orne', 'Yron', 'Lower Orne', 'Lower Orne'];
         $n = 0;
         foreach ($river as $i => [$lat, $lon, $elev]) {
-            foreach (['Rivière', $i % 3 === 0 ? 'Piézomètre' : 'Affluent'] as $k => $stype) {
+            foreach (['River', $i % 3 === 0 ? 'Piezometer' : 'Tributary'] as $k => $stype) {
                 $n++;
                 $slat = $lat + ($k ? 0.012 : 0);
                 $slon = $lon + ($k ? -0.01 : 0);
                 $d = new Dataset($site, $owners[$k]);
                 $d->setTitle(sprintf('Station OR-%02d — %s (%s)', $n, $bodies[$i], mb_strtolower($stype)))
-                  ->setDescription('Suivi mensuel physico-chimique. Données fictives générées pour la démonstration.')
-                  ->setKeywords(['qualité de l\'eau', 'Orne', $stype === 'Piézomètre' ? 'eaux souterraines' : 'eaux de surface'])
+                  ->setDescription('Monthly physicochemical monitoring. Fictional data generated for the demo.')
+                  ->setKeywords(['water quality', 'Orne', $stype === 'Piezometer' ? 'groundwater' : 'surface water'])
                   ->setAuthors([['name' => $owners[$k]->getDisplayName(), 'affiliation' => 'LIEC']])
-                  ->setLicense('CC-BY-4.0')->setLanguage('fr')
-                  ->setProperties(['station_type' => $stype, 'water_body' => $bodies[$i], 'monitoring' => ['Physico-chimie', $k ? 'Nutriments' : 'Métaux'], 'operator' => 'Équipe ORNE'])
+                  ->setLicense('CC-BY-4.0')->setLanguage('en')
+                  ->setProperties(['station_type' => $stype, 'water_body' => $bodies[$i], 'monitoring' => ['Physicochemical', $k ? 'Nutrients' : 'Metals'], 'operator' => 'ORNE team'])
                   ->setStatus(Dataset::STATUS_PUBLISHED);
                 $start = new \DateTimeImmutable('2019-01-15T10:00:00+00:00');
                 $months = 24 + ($n % 4) * 12;
@@ -203,7 +203,7 @@ final class LoadDemoCommand extends Command
                     $season = sin(($m % 12) / 12 * 2 * M_PI - M_PI / 2);
                     $p = (new SamplingPoint($slon, $slat))
                         ->setName(sprintf('OR-%02d', $n))
-                        ->setElevation($stype === 'Piézomètre' ? round($elev - 8 - mt_rand(0, 40) / 10, 1) : (float) $elev)
+                        ->setElevation($stype === 'Piezometer' ? round($elev - 8 - mt_rand(0, 40) / 10, 1) : (float) $elev)
                         ->setVerticalDatum('NGF-IGN69')
                         ->setObservedAt($t)
                         ->setPosition($m)
@@ -239,7 +239,7 @@ final class LoadDemoCommand extends Command
         $s->setTitle($title)->setSubtitle($subtitle)->setDescription($desc)->setHostnames($hosts)->setTheme($theme)
           ->setMap(array_replace(Site::DEFAULT_MAP, $map))->setFields($this->schema->normalizeDefinitions($fields))
           ->setSettings(array_replace(Site::DEFAULT_SETTINGS, $settings))
-          ->setAbout("## À propos\n\nCe site de valorisation est une **démonstration** de GeoSamples v2. Les jeux présentés ici sont fictifs.\n\nUne fois publiés dans l'entrepôt [ORDaR](https://ordar.otelo.univ-lorraine.fr), les jeux affichent leur DOI.")
+          ->setAbout("## About\n\nThis data management site is a **demo** of GeoSamples v2. The datasets shown here are fictional.\n\nOnce published in the [ORDaR](https://ordar.otelo.univ-lorraine.fr) repository, datasets display their DOI.")
           ->setPublished(true);
         $this->em->persist($s);
         return $s;

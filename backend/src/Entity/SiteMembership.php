@@ -6,10 +6,10 @@ use App\Repository\SiteMembershipRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * Rôle d'un utilisateur sur un site.
- *  - responsable : configure le site, gère les membres, valide/modifie tous les jeux du site
- *  - utilisateur : dépose, importe et modifie ses propres jeux de données
- * Une demande d'adhésion est une adhésion au statut "pending".
+ * A user's role on a site.
+ *  - manager: configures the site, manages members, and reviews/edits all site datasets
+ *  - contributor: submits, imports, and edits their own datasets
+ * A join request is a membership with "pending" status.
  */
 #[ORM\Entity(repositoryClass: SiteMembershipRepository::class)]
 #[ORM\UniqueConstraint(name: 'uniq_site_user', columns: ['site_id', 'user_id'])]

@@ -4,7 +4,7 @@
 
 ```
             nometal.otelo.univ-lorraine.fr ─┐
-               orne.otelo.univ-lorraine.fr ─┼─► Apache (TLS) ─► nginx ─┬─► front compilé (SPA)
+               orne.otelo.univ-lorraine.fr ─┼─► Apache (TLS) ─► nginx ─┬─► compiled frontend (SPA)
  geosamples.otelo.univ-lorraine.fr/s/<slug> ─┘   ProxyPreserveHost      └─► /api → php-fpm (Symfony) ─► PostgreSQL
 ```
 
@@ -16,13 +16,13 @@ The current site is determined, in this order, by:
 
 If no site is resolved, the frontend displays the **portal** (site list and global administration).
 
-## Modèle de données
+## Data model
 
 | Table | Purpose |
 |---|---|
 | `site` | Complete site configuration: `hostnames`, text (Markdown), `theme`, `map` (center, zoom, basemaps, `colorBy`, `clusterMaxZoom`), `fields` (custom fields), `import_template`, `settings` (moderation, defaults, contact, etc.), and `published`. |
 | `app_user` | Account; `federation_id` (eppn, OIDC `sub`, or ORCID identifier) for federated accounts, `password` for local accounts, and `ROLE_ADMIN` in `roles`. |
-| `site_membership` | Account role on a site: `responsable` or `utilisateur`; status `active` or `pending` (membership request). |
+| `site_membership` | Account role on a site: manager or contributor; status `active` or `pending` (membership request). |
 | `dataset` | Dataset: shared metadata in columns, site fields in `properties` (JSONB), `temporal_start/end`, `status`, and `doi`/`ordar_url` after publication in ORDaR. |
 | `sampling_point` | Point (station, sample): `longitude`, `latitude` (WGS84), `elevation` + `vertical_datum`, `observed_at/observed_end`, original coordinates (`src_crs`, `src_x`, `src_y`), and per-point measurements in `properties` (JSONB). |
 | `dataset_file` | Files (data, photos, documents), stored under `UPLOAD_DIR/<site>/<uuid>/`. |
@@ -46,7 +46,7 @@ database definition eliminates project-specific development.
 
 ## Authorization
 
-| | public | connecté non membre | utilisateur | responsable | admin |
+| | public | signed-in non-member | user | manager | admin |
 |---|---|---|---|---|---|
 | View the map and published datasets | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Download files from an open dataset | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -73,7 +73,7 @@ for a few million points. PostGIS can be added if non-point geometries (lines, p
 
 ## Import format
 
-Une ligne = un point. Colonnes communes :
+One row = one point. Common columns:
 
 | Column | Level | Contents |
 |---|---|---|
@@ -99,4 +99,4 @@ JSON routes under `/api` (see the top of each controller for the full list):
 - `GET|POST|PATCH /api/admin/users…`, `POST|DELETE /api/admin/sites…`
 
 Common filters: `q`, `kw`, `from`, `to`, `elevMin`, `elevMax`, `bbox=w,s,e,n`, `f[<key>]=a,b`,
-`f[<clé>][min|max]`, `scope=public|mine|manage`, `status`.
+`f[<field key>][min|max]`, `scope=public|mine|manage`, `status`.

@@ -10,13 +10,13 @@ use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 /**
- * Compte utilisateur.
+ * User account.
  *
- * - Les comptes fédérés (RENATER via OIDC/Shibboleth ou ORCID) n'ont pas de mot de passe :
- *   ils sont identifiés par federationId (eppn, "sub" OIDC ou identifiant ORCID).
- * - Les comptes locaux (mot de passe) servent à l'amorçage et aux personnes hors fédération.
- * - ROLE_ADMIN est global ; les rôles "responsable" / "utilisateur" sont portés
- *   par SiteMembership, site par site.
+ * - Federated accounts (RENATER via OIDC/Shibboleth or ORCID) have no password:
+ *   they are identified by federationId (eppn, OIDC "sub", or ORCID iD).
+ * - Local accounts (password) are used for initial setup and people outside the federation.
+ * - ROLE_ADMIN is global; manager / contributor roles are stored by
+ *   SiteMembership on a per-site basis.
  */
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: 'app_user')]

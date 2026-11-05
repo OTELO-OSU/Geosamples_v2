@@ -1,7 +1,7 @@
-# GeoSamples v2 — une seule instance pour tous les sites de valorisation.
-#   cp .env.example .env   # puis renseigner les secrets
+# GeoSamples v2 — one instance for all data curation sites.
+#   cp .env.example .env   # then configure the secrets
 #   docker compose up -d --build
-#   docker compose exec php php bin/console app:user:create vous@univ-lorraine.fr --admin --password '…'
+#   docker compose exec php php bin/console app:user:create you@univ-lorraine.fr --admin --password '…'
 services:
   nginx:
     build: { context: ., dockerfile: docker/nginx/Dockerfile }
@@ -50,7 +50,7 @@ services:
     restart: unless-stopped
     networks: [geosamples]
 
-  # Boîte mail de test (profil dev) : docker compose --profile dev up -d
+  # Test mailbox (dev profile): docker compose --profile dev up -d
   mailer:
     image: axllent/mailpit:latest
     container_name: geosamples-mail

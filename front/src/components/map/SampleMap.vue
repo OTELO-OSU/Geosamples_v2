@@ -170,7 +170,7 @@ async function load() {
     const { data } = await api.get(`/api/sites/${props.site.slug}/map`, { params: { ...props.params, bbox, zoom }, signal: abort.signal })
     render(data)
   } catch (e) {
-    if (e.name !== 'CanceledError') info.value = 'Chargement de la carte impossible'
+    if (e.name !== 'CanceledError') info.value = 'Unable to load the map'
   } finally {
     loading.value = false
   }
@@ -187,7 +187,7 @@ function render(data) {
   markers = []
 
   const n = data.mode === 'points' ? data.points.length : (data.locations ?? data.total)
-  info.value = n === 0 ? 'Aucun point dans cette zone' : `${fmtNumber(n, 0)} point${n > 1 ? 's' : ''} dans la vue`
+  info.value = n === 0 ? 'No points in this area' : `${fmtNumber(n, 0)} point${n > 1 ? 's' : ''} in view`
 
   for (const c of data.clusters) {
     const mk = L.marker([c.lat, c.lon], { icon: clusterIcon(c.count), keyboard: true, title: `${c.count} points` })

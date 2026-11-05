@@ -8,10 +8,10 @@ use App\Repository\SiteRepository;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Détermine le site courant :
- *  1. paramètre de route {slug} (API explicite /api/sites/{slug}/…)
- *  2. en-tête X-Site (front servi en /s/{slug}/ en développement ou sur le portail)
- *  3. nom d'hôte de la requête (nometal.otelo.univ-lorraine.fr → site "nometal")
+ * Determine the current site:
+ *  1. {slug} route parameter (explicit API /api/sites/{slug}/…)
+ *  2. X-Site header (frontend served at /s/{slug}/ in development or on the portal)
+ *  3. request hostname (nometal.otelo.univ-lorraine.fr → site "nometal")
  *  4. DEFAULT_SITE
  */
 final class SiteResolver
@@ -31,12 +31,12 @@ final class SiteResolver
         return $this->defaultSite !== '' ? $this->sites->findOneBy(['slug' => $this->defaultSite]) : null;
     }
 
-    /** Site désigné par slug ; les sites non publiés ne sont visibles que de leurs membres (contrôlé par l'appelant). */
+    /** Site identified by slug; unpublished sites are only visible to their members (checked by the caller). */
     public function bySlug(string $slug): Site
     {
         $site = $this->sites->findOneBy(['slug' => $slug]);
         if (!$site) {
-            throw ApiException::notFound('Site introuvable');
+            throw ApiException::notFound('Site not found');
         }
         return $site;
     }

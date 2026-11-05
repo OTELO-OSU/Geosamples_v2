@@ -13,11 +13,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * GET  /api/sites/{slug}/import/columns          colonnes du template (personnalisées par le site)
- * POST /api/sites/{slug}/import/preview          {rows[]} → contrôle sans écriture
+ * GET  /api/sites/{slug}/import/columns          template columns (customized by the site)
+ * POST /api/sites/{slug}/import/preview          {rows[]} → validate without writing
  * POST /api/sites/{slug}/import/commit           {rows[], submit} → import tout-ou-rien
- * GET  /api/sites/{slug}/export?format=json|csv  jeux filtrés au format du template
- *        &ids=uuid,uuid  &template=1 (sans identifiants : modèle "d'après un jeu existant")
+ * GET  /api/sites/{slug}/export?format=json|csv  filtered datasets in template format
+ *        &ids=uuid,uuid  &template=1 (without IDs: template "based on an existing dataset")
  */
 final class ImportController extends ApiController
 {
@@ -79,7 +79,7 @@ final class ImportController extends ApiController
             $list = $this->datasets->findByIdsOrdered($this->query->ids($site, $this->query->filtersFromRequest($request)));
         }
         $asTemplate = $request->query->getBoolean('template');
-        // Les identifiants ne sont utiles que pour une réimport en mise à jour.
+        // IDs are only needed when reimporting to update existing datasets.
         $withIds = !$asTemplate && array_reduce($list, fn ($c, $d) => $c && $this->perm->canEdit($d), true);
         $rows = $this->import->exportRows($site, $list, $withIds);
         if ($asTemplate) {
@@ -112,7 +112,7 @@ final class ImportController extends ApiController
     {
         $rows = $this->body($request)['rows'] ?? null;
         if (!\is_array($rows) || !$rows) {
-            throw new ApiException('Aucune ligne à importer');
+            throw new ApiException('No rows to import');
         }
         return $rows;
     }
