@@ -40,7 +40,8 @@ final class FederationService
         private string $oidcClientId,
         private string $oidcClientSecret,
         private string $oidcScopes,
-        private string $orcidBaseUrl,
+        private string $orcidDomain,
+        private string $orcidRedirectUri,
         private string $orcidClientId,
         private string $orcidClientSecret,
         private array $shibHeaders,
@@ -168,13 +169,10 @@ final class FederationService
         }
         $nonce = bin2hex(random_bytes(16));
         $state = $this->sign(['n' => $nonce, 'r' => self::safeReturn($return), 'e' => time() + 600]);
-        $url = rtrim($this->orcidBaseUrl, '/') . '/oauth/authorize?' . http_build_query([
-            'client_id' => $this->orcidClientId,
-            'response_type' => 'code',
-            'scope' => '/authenticate',
-            'redirect_uri' => $this->orcidCallbackUrl($request),
-            'state' => $state,
-        ]);
+        // Même forme que ORDaR v2 : redirect_uri non encodé, scope openid
+        $url = $this->orcidBase() . '/oauth/authorize?client_id=' . rawurlencode($this->orcidClientId)
+            . '&response_type=code&scope=openid&redirect_uri=' . $this->orcidCallbackUrl($request)
+            . '&state=' . rawurlencode($state);
         $resp = new RedirectResponse($url);
         $resp->headers->setCookie(Cookie::create(self::ORCID_STATE_COOKIE, $nonce, time() + 600, '/api/auth/orcid', null, $this->cookieSecure, true, false, Cookie::SAMESITE_LAX));
         return $resp;
@@ -195,15 +193,13 @@ final class FederationService
             throw new ApiException('Session de connexion invalide ou expirée, veuillez réessayer', 401);
         }
 
-        $callbackUrl = $this->orcidCallbackUrl($request);
-        $tokenResponse = $this->http->request('POST', rtrim($this->orcidBaseUrl, '/') . '/oauth/token', [
+        $tokenResponse = $this->http->request('POST', $this->orcidBase() . '/oauth/token', [
             'headers' => ['Accept' => 'application/json'],
             'body' => [
                 'client_id' => $this->orcidClientId,
                 'client_secret' => $this->orcidClientSecret,
                 'grant_type' => 'authorization_code',
                 'code' => (string) $request->query->get('code'),
-                'redirect_uri' => $callbackUrl,
             ],
         ]);
         if ($tokenResponse->getStatusCode() !== 200) {
@@ -216,7 +212,7 @@ final class FederationService
             throw new ApiException('Réponse ORCID invalide', 401);
         }
 
-        $userinfoResponse = $this->http->request('GET', rtrim($this->orcidBaseUrl, '/') . '/oauth/userinfo', [
+        $userinfoResponse = $this->http->request('GET', $this->orcidBase() . '/oauth/userinfo', [
             'headers' => [
                 'Accept' => 'application/json',
                 'Authorization' => 'Bearer ' . $accessToken,
@@ -338,16 +334,25 @@ final class FederationService
 
     private function orcidCallbackUrl(Request $request): string
     {
-        return $request->getSchemeAndHttpHost() . '/api/auth/orcid/callback';
+        // L'URI doit être identique à celle déclarée chez ORCID (ORCID_CLIENT_REDIRECT_URI)
+        return $this->orcidRedirectUri !== ''
+            ? $this->orcidRedirectUri
+            : $request->getSchemeAndHttpHost() . '/api/auth/orcid/callback';
+    }
+
+    private function orcidDomain(): string
+    {
+        return trim(preg_replace('#^https?://#', '', $this->orcidDomain) ?? '', '/');
+    }
+
+    private function orcidBase(): string
+    {
+        return 'https://' . $this->orcidDomain();
     }
 
     private function publicOrcidEmail(string $orcid): string
     {
-        $host = parse_url($this->orcidBaseUrl, PHP_URL_HOST);
-        if (!\is_string($host) || $host === '') {
-            throw new \RuntimeException('ORCID_BASE_URL invalide');
-        }
-        $url = 'https://pub.' . $host . '/v3.0/' . rawurlencode($orcid) . '/email';
+        $url = 'https://pub.' . $this->orcidDomain() . '/v3.0/' . rawurlencode($orcid) . '/email';
         $response = $this->http->request('GET', $url, [
             'headers' => ['Accept' => 'application/vnd.orcid+json'],
         ]);

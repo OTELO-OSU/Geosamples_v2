@@ -56,17 +56,19 @@ SHIB_SHARED_SECRET=…
 
 ## ORCID sign-in
 
-ORCID is available in addition to the federation mode selected above. The ORCID client must allow
-the callback URL `https://<hostname>/api/auth/orcid/callback` for each hostname served.
-Configure the client credentials in `.env`:
+ORCID is available in addition to the federation mode selected above. Register the redirect URI
+in the ORCID client and set the same value in `ORCID_CLIENT_REDIRECT_URI` (it must match exactly).
+Two forms work: `https://<hostname>/orcid` (a frontend route that relays to the backend) or
+`https://<hostname>/api/auth/orcid/callback`; when empty, the latter is used.
 
 ```
-ORCID_BASE_URL=https://orcid.org
+ORCID_DOMAIN=orcid.org
 ORCID_CLIENT_ID=…
 ORCID_CLIENT_SECRET=…
+ORCID_CLIENT_REDIRECT_URI=https://<hostname>/orcid
 ```
 
-For the ORCID test environment, use `https://sandbox.orcid.org` as `ORCID_BASE_URL`.
+For the ORCID test environment, use `sandbox.orcid.org` as `ORCID_DOMAIN`.
 The ORCID button is displayed only when both credentials are configured. The first sign-in
 automatically creates an account, as with OIDC; the application requires a valid email address and
 uses the address returned by ORCID first, then the public address on the ORCID profile. If no

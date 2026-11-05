@@ -3,6 +3,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useSiteStore } from '@/stores/site'
 
 const shared = [
+  // Retour ORCID (URI déclarée chez ORCID) : relayé tel quel vers le backend
+  { path: '/orcid', name: 'orcid-callback', component: () => import('@/views/NotFoundView.vue'), beforeEnter: (to) => { window.location.replace('/api/auth/orcid/callback' + (to.fullPath.includes('?') ? to.fullPath.slice(to.fullPath.indexOf('?')) : '')); return false } },
   { path: '/connexion', name: 'login', component: () => import('@/views/LoginView.vue'), meta: { title: 'Connexion' } },
   { path: '/profil', name: 'profile', component: () => import('@/views/ProfileView.vue'), meta: { auth: true, title: 'Mon profil' } },
   { path: '/admin', name: 'global-admin', component: () => import('@/views/GlobalAdminView.vue'), meta: { admin: true, title: 'Administration générale' } },
