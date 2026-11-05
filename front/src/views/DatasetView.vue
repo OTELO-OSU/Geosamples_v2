@@ -1,6 +1,6 @@
 <template>
   <div class="gs-page">
-    <v-btn variant="text" prepend-icon="mdi-arrow-left" class="mb-4 ml-n3" @click="back">Retour à la carte</v-btn>
+    <v-btn variant="text" prepend-icon="mdi-arrow-left" class="mb-4 ml-n3" @click="back">Back to map</v-btn>
     <v-progress-linear v-if="!ds && !error" indeterminate color="primary" />
     <v-alert v-else-if="error" type="warning" variant="tonal">{{ error }}</v-alert>
     <DatasetDetail v-else :ds="ds" :site="site">
@@ -30,7 +30,7 @@ watch(() => props.uuid, async (u) => {
     ds.value = (await api.get(`/api/sites/${site.value.slug}/datasets/${u}`)).data
     document.title = `${ds.value.title} · ${site.value.title}`
   } catch (e) {
-    error.value = e.response?.status === 404 ? 'Ce jeu de données n\'existe pas ou n\'est pas encore publié.' : errorMessage(e)
+    error.value = e.response?.status === 404 ? 'This dataset does not exist or has not been published yet.' : errorMessage(e)
   }
 }, { immediate: true })
 

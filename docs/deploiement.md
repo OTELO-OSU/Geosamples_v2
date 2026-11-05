@@ -1,20 +1,20 @@
-# Déploiement
+# Deployment
 
 ## Conteneurs
 
-| Service | Image | Rôle |
+| Service | Image | Purpose |
 |---|---|---|
-| `nginx` | `docker/nginx/Dockerfile` | front compilé, relais `/api` → php-fpm, en-têtes de sécurité (CSP incluant les fonds de carte) |
-| `php` | `docker/php-fpm/Dockerfile` | Symfony ; à chaque démarrage : clés JWT si absentes, attente de PostgreSQL, migrations, cache ; cron de purge des sessions |
-| `database` | `postgres:18-alpine` | données |
-| `mailer` | mailpit (profil `dev`) | boîte mail de test |
+| `nginx` | `docker/nginx/Dockerfile` | compiled frontend, `/api` proxy to php-fpm, security headers (CSP including basemaps) |
+| `php` | `docker/php-fpm/Dockerfile` | Symfony; on each startup: generate JWT keys if missing, wait for PostgreSQL, run migrations, warm cache; cron to purge sessions |
+| `database` | `postgres:18-alpine` | data |
+| `mailer` | mailpit (`dev` profile) | test mailbox |
 
-Volumes persistants dans `docker_data/` : `postgres`, `uploads` (fichiers déposés et logos), `jwt`, `logs`.
-Sauvegarder `postgres` (ou `pg_dump`) **et** `uploads`.
+Persistent volumes in `docker_data/`: `postgres`, `uploads` (submitted files and logos), `jwt`, and `logs`.
+Back up both `postgres` (or use `pg_dump`) **and** `uploads`.
 
-## Reverse proxy Apache de l'hôte
+## Host Apache reverse proxy
 
-Un seul vhost pour tous les sites, le `Host` d'origine étant conservé :
+Use a single vhost for all sites, preserving the original `Host`:
 
 ```apache
 <VirtualHost *:443>
@@ -33,14 +33,14 @@ Un seul vhost pour tous les sites, le `Host` d'origine étant conservé :
 </VirtualHost>
 ```
 
-Le certificat doit couvrir tous les noms (SAN) ; avec certbot :
+The certificate must cover all hostnames (SAN). With certbot:
 `certbot --apache -d geosamples.otelo.univ-lorraine.fr -d nometal.otelo.univ-lorraine.fr -d orne.otelo.univ-lorraine.fr`.
 
-Variables à vérifier dans `.env` : `TRUSTED_HOSTS` (regex couvrant tous les noms),
-`TRUSTED_PROXIES=private_ranges` (pour que `X-Forwarded-Proto` soit pris en compte : cookies
-`Secure`, URL de retour OIDC en https), `COOKIE_SECURE=1`.
+Check these variables in `.env`: `TRUSTED_HOSTS` (a regex covering all hostnames),
+`TRUSTED_PROXIES=private_ranges` (so `X-Forwarded-Proto` is honored for `Secure` cookies and
+HTTPS OIDC callback URLs), and `COOKIE_SECURE=1`.
 
-## Premier démarrage
+## First startup
 
 ```sh
 cp .env.example .env && $EDITOR .env
@@ -48,26 +48,26 @@ docker compose up -d --build
 docker compose exec php php bin/console app:user:create vous@univ-lorraine.fr --admin --password '…'
 ```
 
-Puis, connecté en administrateur : « Administration générale » → créer les sites, leurs noms d'hôte
-et leurs responsables.
+Then, while signed in as an administrator, go to “Global administration” to create sites, hostnames,
+and managers.
 
-## Mise à jour
-
-```sh
-git pull && docker compose up -d --build   # les migrations s'appliquent au démarrage de php
-```
-
-## Dépannage : « Attente de PostgreSQL… » sans fin
+## Update
 
 ```sh
-docker compose ps                                                   # database doit être « healthy »
-docker compose exec php php bin/console dbal:run-sql "SELECT 1"     # affiche l'erreur réelle
+git pull && docker compose up -d --build   # migrations run when php starts
 ```
 
-- `password authentication failed` : `POSTGRES_PASSWORD` a été modifié **après** la première
-  initialisation de `docker_data/postgres` ; PostgreSQL a gardé l'ancien mot de passe. Soit on aligne
-  la base :
+## Troubleshooting: “Waiting for PostgreSQL…” never completes
+
+```sh
+docker compose ps                                                   # database should be "healthy"
+docker compose exec php php bin/console dbal:run-sql "SELECT 1"     # displays the actual error
+```
+
+- `password authentication failed`: `POSTGRES_PASSWORD` was changed **after** the initial
+  initialization of `docker_data/postgres`; PostgreSQL retained the old password. Either update
+  the database password:
   `docker compose exec database psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "ALTER USER \"$POSTGRES_USER\" PASSWORD '<nouveau>'"`,
-  soit, si elle ne contient encore rien : `docker compose down && rm -rf docker_data/postgres && docker compose up -d`.
-- `could not translate host name "database"` : le conteneur php n'est pas sur le réseau du projet
-  (lancer les deux services avec le même `docker compose`).
+  or, if the database is still empty: `docker compose down && rm -rf docker_data/postgres && docker compose up -d`.
+- `could not translate host name "database"`: the php container is not on the project network
+  (start both services using the same `docker compose` project).

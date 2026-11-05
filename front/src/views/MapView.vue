@@ -1,35 +1,35 @@
 <template>
   <div class="gs-mv" :class="{ 'gs-mv--side-closed': !sideOpen, 'gs-mv--preview': !!selected }">
-    <aside class="gs-mv__side" aria-label="Recherche">
+    <aside class="gs-mv__side" aria-label="Search">
       <div class="gs-mv__intro">
         <div v-if="site.description" class="gs-prose gs-mv__desc" :class="{ 'gs-mv__desc--clamp': !introOpen }" v-html="markdown(site.description)" />
-        <button v-if="site.description && site.description.length > 180" class="gs-link" @click="introOpen = !introOpen">{{ introOpen ? 'Réduire' : 'Lire la suite' }}</button>
+        <button v-if="site.description && site.description.length > 180" class="gs-link" @click="introOpen = !introOpen">{{ introOpen ? 'Show less' : 'Read more' }}</button>
         <p class="gs-mv__stats">
-          <strong>{{ fmtNumber(facets?.datasets ?? 0, 0) }}</strong> jeu{{ (facets?.datasets ?? 0) > 1 ? 'x' : '' }} de données,
+          <strong>{{ fmtNumber(facets?.datasets ?? 0, 0) }}</strong> dataset{{ (facets?.datasets ?? 0) > 1 ? 's' : '' }},
           <strong>{{ fmtNumber(facets?.points ?? 0, 0) }}</strong> point{{ (facets?.points ?? 0) > 1 ? 's' : '' }}
-          <span v-if="filterCount" class="text-muted">avec les filtres actuels</span>
+          <span v-if="filterCount" class="text-muted">with current filters</span>
         </p>
       </div>
       <v-tabs v-model="tab" density="compact" color="primary" grow class="gs-mv__tabs">
-        <v-tab value="filters">Filtres<v-badge v-if="filterCount" :content="filterCount" inline color="primary" /></v-tab>
-        <v-tab value="list">Liste<span class="gs-mv__tabcount">{{ list.total }}</span></v-tab>
+        <v-tab value="filters">Filters<v-badge v-if="filterCount" :content="filterCount" inline color="primary" /></v-tab>
+        <v-tab value="list">List<span class="gs-mv__tabcount">{{ list.total }}</span></v-tab>
       </v-tabs>
       <div class="gs-mv__scroll">
         <FilterPanel v-show="tab === 'filters'" v-model="filters" :fields="site.fields" :facets="facets" class="pa-4" />
         <div v-show="tab === 'list'" class="pa-2">
           <div class="d-flex align-center ga-2 px-2 pb-2">
-            <v-checkbox v-model="inView" label="Seulement la zone affichée" hide-details density="compact" />
+            <v-checkbox v-model="inView" label="Current map area only" hide-details density="compact" />
             <v-spacer />
             <v-menu>
-              <template #activator="{ props }"><v-btn v-bind="props" variant="text" size="small" icon="mdi-download" aria-label="Exporter la sélection" /></template>
+              <template #activator="{ props }"><v-btn v-bind="props" variant="text" size="small" icon="mdi-download" aria-label="Export selection" /></template>
               <v-list density="compact">
-                <v-list-item title="Exporter en tableur (.xlsx)" @click="exportList('xlsx')" />
-                <v-list-item title="Exporter en CSV" @click="exportList('csv')" />
+                <v-list-item title="Export spreadsheet (.xlsx)" @click="exportList('xlsx')" />
+                <v-list-item title="Export CSV" @click="exportList('csv')" />
               </v-list>
             </v-menu>
           </div>
-          <v-select v-model="sort" :items="sorts" density="compact" hide-details class="px-2 pb-2" aria-label="Tri" />
-          <p v-if="!list.items.length && !listLoading" class="text-muted pa-4">Aucun jeu ne correspond à ces critères. Élargissez la zone ou retirez un filtre.</p>
+          <v-select v-model="sort" :items="sorts" density="compact" hide-details class="px-2 pb-2" aria-label="Sort order" />
+          <p v-if="!list.items.length && !listLoading" class="text-muted pa-4">No datasets match these criteria. Expand the area or remove a filter.</p>
           <v-list lines="two" class="bg-transparent py-0">
             <v-list-item
               v-for="it in list.items" :key="it.uuid" :active="it.uuid === selected" color="primary" rounded="lg"
@@ -48,18 +48,18 @@
     </aside>
 
     <section class="gs-mv__map">
-      <v-btn class="gs-mv__toggle" size="small" :icon="sideOpen ? 'mdi-chevron-left' : 'mdi-tune-variant'" :aria-label="sideOpen ? 'Masquer le panneau' : 'Afficher la recherche'" @click="sideOpen = !sideOpen" />
+      <v-btn class="gs-mv__toggle" size="small" :icon="sideOpen ? 'mdi-chevron-left' : 'mdi-tune-variant'" :aria-label="sideOpen ? 'Hide panel' : 'Show search'" @click="sideOpen = !sideOpen" />
       <SampleMap :site="site" :params="mapParams" :selected="selected" :focus="focus" @select="select" @view="onView" />
       <div v-if="facets?.temporal?.histogram?.length > 1" class="gs-mv__timeline">
         <TimelineBar :histogram="facets.temporal.histogram" :unit="facets.temporal.unit" :from="filters.from" :to="filters.to" @change="(p) => (filters = { ...filters, ...p })" />
       </div>
 
       <transition name="gs-slide">
-        <aside v-if="selected" class="gs-mv__preview" aria-label="Aperçu du jeu de données">
+        <aside v-if="selected" class="gs-mv__preview" aria-label="Dataset preview">
           <div class="gs-mv__preview-bar">
-            <v-btn variant="text" size="small" prepend-icon="mdi-open-in-new" :to="`/jeux/${selected}`">Ouvrir la fiche</v-btn>
+            <v-btn variant="text" size="small" prepend-icon="mdi-open-in-new" :to="`/jeux/${selected}`">Open details</v-btn>
             <v-spacer />
-            <v-btn icon="mdi-close" variant="text" size="small" aria-label="Fermer l'aperçu" @click="select(null)" />
+            <v-btn icon="mdi-close" variant="text" size="small" aria-label="Close preview" @click="select(null)" />
           </div>
           <div class="gs-mv__preview-body">
             <v-progress-linear v-if="!preview" indeterminate color="primary" />
@@ -109,10 +109,10 @@ const focus = ref(null)
 const introOpen = ref(false)
 const sideOpen = ref(window.innerWidth > 900)
 const sorts = [
-  { value: 'updated', title: 'Mis à jour récemment' },
-  { value: 'date', title: 'Date (récent d\'abord)' },
-  { value: 'date_asc', title: 'Date (ancien d\'abord)' },
-  { value: 'title', title: 'Titre' },
+  { value: 'updated', title: 'Recently updated' },
+  { value: 'date', title: 'Date (newest first)' },
+  { value: 'date_asc', title: 'Date (oldest first)' },
+  { value: 'title', title: 'Title' },
 ]
 
 const params = computed(() => toParams(filters.value))
@@ -121,7 +121,7 @@ const filterCount = computed(() => activeCount(filters.value))
 
 let fitted = false
 
-// Synchronisation avec l'URL (liens partageables)
+// Keep the URL in sync (shareable links).
 watch([params, selected], () => {
   const q = { ...params.value }
   if (selected.value) q.jeu = selected.value
@@ -138,7 +138,7 @@ onMounted(() => { loadFacets(); loadList() })
 
 async function loadFacets() {
   try {
-    // La frise et les bornes d'altitude ignorent leurs propres filtres pour rester lisibles
+    // Ignore the timeline and elevation filters when calculating facets so they remain readable.
     const p = toParams(filters.value, { omit: ['from', 'to', 'elevMin', 'elevMax'] })
     const full = (await api.get(`/api/sites/${site.value.slug}/facets`, { params: p })).data
     if (filterCount.value && (filters.value.from || filters.value.to || filters.value.elevMin !== null || filters.value.elevMax !== null)) {

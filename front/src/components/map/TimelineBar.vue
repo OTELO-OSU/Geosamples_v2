@@ -2,7 +2,7 @@
   <div class="gs-timeline" :class="{ 'gs-timeline--active': active }">
     <div class="gs-timeline__head">
       <span class="gs-timeline__label">{{ label }}</span>
-      <v-btn v-if="active" size="x-small" variant="text" @click="reset">Toute la période</v-btn>
+      <v-btn v-if="active" size="x-small" variant="text" @click="reset">Entire period</v-btn>
     </div>
     <svg class="gs-timeline__bars" :viewBox="`0 0 ${buckets.length * 10} 40`" preserveAspectRatio="none" aria-hidden="true">
       <rect
@@ -14,14 +14,14 @@
     <v-range-slider
       v-model="range" :min="0" :max="Math.max(0, buckets.length - 1)" :step="1"
       hide-details density="compact" color="primary" track-size="2" thumb-size="14"
-      :aria-label="'Période'" class="gs-timeline__slider" @end="commit"
+      :aria-label="'Period'" class="gs-timeline__slider" @end="commit"
     />
     <div class="gs-timeline__axis"><span>{{ fmt(buckets[0]) }}</span><span>{{ fmt(buckets[buckets.length - 1]) }}</span></div>
   </div>
 </template>
 
 <script setup>
-/** Frise temporelle : histogramme des observations + sélection d'une période. */
+/** Timeline: observation histogram and period selection. */
 import { computed, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 
@@ -33,7 +33,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['change'])
 
-// Complète les périodes vides pour garder une échelle continue
+// Fill empty periods to keep the scale continuous.
 const buckets = computed(() => {
   const h = props.histogram
   if (!h.length) return []

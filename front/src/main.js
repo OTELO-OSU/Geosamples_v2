@@ -1,6 +1,6 @@
 /**
- * Démarrage : détection du site (préfixe /s/<slug>/ ou nom d'hôte), restauration de
- * session via le cookie de refresh, application du thème du site, puis montage.
+ * Startup: detect the site (the /s/<slug>/ prefix or hostname), restore the
+ * session using the refresh cookie, apply the site theme, then mount the app.
  */
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
@@ -38,7 +38,7 @@ async function boot() {
   let ctx = null
   try {
     ctx = (await api.get('/api/context')).data
-  } catch { /* backend indisponible : on affiche le portail vide */ }
+  } catch { /* Backend unavailable; show an empty portal. */ }
   siteStore.federation = ctx?.federation || siteStore.federation
   if (ctx?.site) {
     siteStore.site = ctx.site
@@ -54,12 +54,12 @@ async function boot() {
   const router = buildRouter(siteStore.base, siteStore.mode)
   app.use(router)
 
-  // Retour de connexion fédérée (?auth=ok|error)
+  // Return from federated sign-in (?auth=ok|error)
   const q = new URLSearchParams(window.location.search)
   if (q.has('auth')) {
     const ui = useUiStore()
-    if (q.get('auth') === 'error') ui.error(q.get('message') || 'Connexion impossible')
-    else if (auth.isLogged) ui.notify(`Bienvenue ${auth.user.firstname || auth.user.email}`)
+    if (q.get('auth') === 'error') ui.error(q.get('message') || 'Unable to sign in')
+    else if (auth.isLogged) ui.notify(`Welcome ${auth.user.firstname || auth.user.email}`)
     q.delete('auth'); q.delete('message')
     const rest = q.toString()
     history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : ''))

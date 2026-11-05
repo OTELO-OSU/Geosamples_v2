@@ -1,100 +1,100 @@
 <template>
   <div class="gs-page">
-    <h1>Import en lot</h1>
+    <h1>Bulk import</h1>
     <p class="text-muted mt-2 gs-prose">
-      Une ligne du tableur correspond à un point de prélèvement. Les lignes qui partagent la même
-      « dataset_ref » forment un seul jeu de données. Pour modifier des jeux existants, exportez-les
-      depuis <router-link to="/espace">Mes données</router-link>, corrigez le fichier puis réimportez-le.
+      Each spreadsheet row corresponds to a sampling point. Rows with the same
+      “dataset_ref” form one dataset. To edit existing datasets, export them from
+      <router-link to="/espace">My data</router-link>, edit the file, then re-import it.
     </p>
     <div v-if="site.importTemplate?.instructions" class="gs-panel pa-4 mt-4 gs-prose" v-html="markdown(site.importTemplate.instructions)" />
 
-    <v-stepper v-model="step" :items="['Modèle', 'Fichier', 'Vérification', 'Import']" alt-labels flat color="primary" class="mt-6 bg-transparent" hide-actions>
+    <v-stepper v-model="step" :items="['Template', 'File', 'Review', 'Import']" alt-labels flat color="primary" class="mt-6 bg-transparent" hide-actions>
       <template #item.1>
         <div class="gs-cols">
           <div class="gs-panel pa-5">
-            <h2>Modèle vide</h2>
-            <p class="text-muted my-2">Colonnes du site, listes de valeurs et feuille d'aide incluses.</p>
+            <h2>Blank template</h2>
+            <p class="text-muted my-2">Includes site columns, value lists, and a help sheet.</p>
             <div class="d-flex ga-2 mt-4">
-              <v-btn color="primary" prepend-icon="mdi-microsoft-excel" :loading="dl === 'xlsx'" @click="template('xlsx')">Télécharger (.xlsx)</v-btn>
+              <v-btn color="primary" prepend-icon="mdi-microsoft-excel" :loading="dl === 'xlsx'" @click="template('xlsx')">Download (.xlsx)</v-btn>
               <v-btn variant="outlined" :loading="dl === 'csv'" @click="template('csv')">CSV</v-btn>
             </div>
           </div>
           <div class="gs-panel pa-5">
-            <h2>Modèle d'après un jeu existant</h2>
-            <p class="text-muted my-2">Le fichier reprend les valeurs du jeu choisi, à adapter pour vos nouveaux jeux.</p>
+            <h2>Template from an existing dataset</h2>
+            <p class="text-muted my-2">The file contains values from the selected dataset; adapt it for your new datasets.</p>
             <v-autocomplete
-              v-model="fromUuid" :items="searchItems" :loading="searching" item-title="title" item-value="uuid" label="Rechercher un jeu"
+              v-model="fromUuid" :items="searchItems" :loading="searching" item-title="title" item-value="uuid" label="Search datasets"
               no-filter hide-details class="mt-3" @update:search="search"
             />
-            <v-btn class="mt-3" variant="outlined" :disabled="!fromUuid" :loading="dl === 'from'" prepend-icon="mdi-table-arrow-down" @click="fromExisting">Télécharger le modèle</v-btn>
+            <v-btn class="mt-3" variant="outlined" :disabled="!fromUuid" :loading="dl === 'from'" prepend-icon="mdi-table-arrow-down" @click="fromExisting">Download template</v-btn>
           </div>
         </div>
-        <div class="d-flex mt-6"><v-spacer /><v-btn color="primary" @click="step = 2">J'ai rempli mon fichier</v-btn></div>
+        <div class="d-flex mt-6"><v-spacer /><v-btn color="primary" @click="step = 2">I've filled in my file</v-btn></div>
       </template>
 
       <template #item.2>
-        <v-file-input v-model="file" label="Fichier CSV ou XLSX" accept=".csv,.xlsx,.txt" prepend-icon="" prepend-inner-icon="mdi-paperclip" show-size @update:model-value="read" />
+        <v-file-input v-model="file" label="CSV or XLSX file" accept=".csv,.xlsx,.txt" prepend-icon="" prepend-inner-icon="mdi-paperclip" show-size @update:model-value="read" />
         <template v-if="table">
-          <p class="my-3"><strong>{{ table.rows.length }}</strong> ligne(s) lue(s). Vérifiez la correspondance des colonnes :</p>
+          <p class="my-3"><strong>{{ table.rows.length }}</strong> row(s) read. Check the column mapping:</p>
           <v-table density="compact" class="gs-panel">
-            <thead><tr><th>Colonne du fichier</th><th>Correspond à</th><th>Exemple</th></tr></thead>
+            <thead><tr><th>File column</th><th>Maps to</th><th>Example</th></tr></thead>
             <tbody>
               <tr v-for="h in table.headers" :key="h">
                 <td>{{ h }}</td>
                 <td style="min-width: 260px">
-                  <v-select v-model="mapping[h]" :items="columnItems" density="compact" hide-details variant="plain" placeholder="Ignorer cette colonne" clearable :aria-label="`Correspondance de ${h}`" />
+                  <v-select v-model="mapping[h]" :items="columnItems" density="compact" hide-details variant="plain" placeholder="Ignore this column" clearable :aria-label="`Mapping for ${h}`" />
                 </td>
                 <td class="text-muted text-truncate" style="max-width: 260px">{{ table.rows[0]?.[h] }}</td>
               </tr>
             </tbody>
           </v-table>
           <v-alert v-if="missingRequired.length" type="warning" variant="tonal" density="compact" class="mt-3">
-            Colonnes obligatoires non associées : {{ missingRequired.join(', ') }}
+            Unmapped required columns: {{ missingRequired.join(', ') }}
           </v-alert>
         </template>
-        <div class="d-flex mt-6 ga-2"><v-btn variant="text" @click="step = 1">Retour</v-btn><v-spacer /><v-btn color="primary" :disabled="!table" :loading="busy" @click="preview">Vérifier</v-btn></div>
+        <div class="d-flex mt-6 ga-2"><v-btn variant="text" @click="step = 1">Back</v-btn><v-spacer /><v-btn color="primary" :disabled="!table" :loading="busy" @click="preview">Review</v-btn></div>
       </template>
 
       <template #item.3>
         <v-alert v-for="w in warnings" :key="w" type="warning" variant="tonal" density="compact" class="mb-2">{{ w }}</v-alert>
         <template v-if="result">
           <p class="mb-3">
-            <strong>{{ result.datasets.length }}</strong> jeu(x) détecté(s) :
-            <span class="text-success">{{ result.valid }} valide(s)</span><span v-if="result.invalid">, <span class="text-error">{{ result.invalid }} à corriger</span></span>.
+            <strong>{{ result.datasets.length }}</strong> dataset(s) found:
+            <span class="text-success">{{ result.valid }} valid</span><span v-if="result.invalid">, <span class="text-error">{{ result.invalid }} need correction</span></span>.
           </p>
           <v-table density="compact" class="gs-panel">
-            <thead><tr><th>Jeu</th><th>Action</th><th class="text-end">Points</th><th>Lignes</th><th>Contrôle</th></tr></thead>
+            <thead><tr><th>Dataset</th><th>Action</th><th class="text-end">Points</th><th>Rows</th><th>Validation</th></tr></thead>
             <tbody>
               <tr v-for="d in result.datasets" :key="d.ref">
                 <td>{{ d.title || d.ref }}</td>
-                <td>{{ d.action === 'create' ? 'Création' : 'Mise à jour' }}</td>
+                <td>{{ d.action === 'create' ? 'Create' : 'Update' }}</td>
                 <td class="text-end">{{ d.points }}</td>
                 <td>{{ lines(d.lines) }}</td>
                 <td>
                   <span v-if="isEmpty(d.errors)" class="text-success"><v-icon size="16">mdi-check</v-icon> OK</span>
-                  <ul v-else class="gs-errs"><li v-for="(m, k) in d.errors" :key="k"><template v-if="String(k).startsWith('ligne')"><strong>{{ String(k).split(' · ')[0] }}</strong> : </template>{{ m }}</li></ul>
+                  <ul v-else class="gs-errs"><li v-for="(m, k) in d.errors" :key="k"><template v-if="String(k).startsWith('ligne')"><strong>{{ String(k).split(' · ')[0] }}</strong>: </template>{{ m }}</li></ul>
                 </td>
               </tr>
             </tbody>
           </v-table>
           <v-checkbox v-model="submit" class="mt-4" hide-details :label="submitLabel" />
-          <p class="text-muted text-body-2">Sinon, les jeux sont créés comme brouillons, à relire dans « Mes données ».</p>
+          <p class="text-muted text-body-2">Otherwise, datasets are created as drafts and can be reviewed under “My data”.</p>
         </template>
         <div class="d-flex mt-6 ga-2">
-          <v-btn variant="text" @click="step = 2">Retour</v-btn><v-spacer />
-          <v-btn color="primary" :disabled="!result || result.invalid > 0 || !result.valid" :loading="busy" @click="commit">Importer {{ result?.valid || '' }} jeu(x)</v-btn>
+          <v-btn variant="text" @click="step = 2">Back</v-btn><v-spacer />
+          <v-btn color="primary" :disabled="!result || result.invalid > 0 || !result.valid" :loading="busy" @click="commit">Import {{ result?.valid || '' }} dataset(s)</v-btn>
         </div>
-        <p v-if="result?.invalid" class="text-body-2 text-error text-end mt-2">Corrigez le fichier puis rechargez-le : l'import se fait en une seule fois, tout ou rien.</p>
+        <p v-if="result?.invalid" class="text-body-2 text-error text-end mt-2">Correct the file and upload it again. The import is all-or-nothing.</p>
       </template>
 
       <template #item.4>
         <v-alert v-if="done" type="success" variant="tonal">
-          {{ done.created.length }} jeu(x) créé(s), {{ done.updated.length }} mis à jour —
-          {{ done.status === 'published' ? 'publiés' : done.status === 'submitted' ? 'en attente de validation' : 'enregistrés comme brouillons' }}.
+          {{ done.created.length }} dataset(s) created, {{ done.updated.length }} updated —
+          {{ done.status === 'published' ? 'published' : done.status === 'submitted' ? 'pending review' : 'saved as drafts' }}.
         </v-alert>
         <div class="d-flex ga-2 mt-4">
-          <v-btn color="primary" to="/espace">Voir mes données</v-btn>
-          <v-btn variant="text" @click="reset">Importer un autre fichier</v-btn>
+          <v-btn color="primary" to="/espace">View my data</v-btn>
+          <v-btn variant="text" @click="reset">Import another file</v-btn>
         </div>
       </template>
     </v-stepper>
@@ -133,7 +133,7 @@ const missingRequired = computed(() => {
   const used = new Set(Object.values(mapping.value))
   return columns.value.filter((c) => c.required && !used.has(c.key)).map((c) => c.label)
 })
-const submitLabel = computed(() => (!site.value.settings.moderation || site.value.me.canManage ? 'Publier directement les jeux importés' : 'Soumettre directement les jeux à validation'))
+const submitLabel = computed(() => (!site.value.settings.moderation || site.value.me.canManage ? 'Publish imported datasets directly' : 'Submit imported datasets for review'))
 
 onMounted(async () => {
   columns.value = (await api.get(`/api/sites/${site.value.slug}/import/columns`)).data.columns
@@ -175,7 +175,7 @@ async function read(f) {
   if (!one) return
   try {
     table.value = await readTable(one)
-    if (!table.value.rows.length) { ui.error('Le fichier ne contient aucune ligne de données'); table.value = null; return }
+    if (!table.value.rows.length) { ui.error('The file contains no data rows'); table.value = null; return }
     mapping.value = autoMapping(table.value.headers, columns.value)
   } catch (e) {
     ui.error(`Lecture impossible : ${e.message}`)

@@ -1,25 +1,25 @@
 <template>
   <div class="gs-page gs-login">
-    <h1>Connexion</h1>
-    <p class="text-muted mt-2">La consultation des données publiées est libre. La connexion sert à déposer et gérer des jeux de données.</p>
+    <h1>Sign in</h1>
+    <p class="text-muted mt-2">Published data is freely accessible. Sign in to submit and manage datasets.</p>
 
     <section v-if="fed.loginUrl || fed.orcidLoginUrl" class="gs-panel pa-6 mt-6">
-      <h2>Connexion fédérée</h2>
-      <p class="text-muted mt-1 mb-4">Connectez-vous avec votre établissement ou votre identifiant ORCID.</p>
+      <h2>Federated sign-in</h2>
+      <p class="text-muted mt-1 mb-4">Sign in through your institution or with your ORCID iD.</p>
       <div class="d-flex flex-wrap ga-3">
-        <v-btn v-if="fed.loginUrl" color="primary" size="large" prepend-icon="mdi-school-outline" :href="federationHref">Choisir mon établissement</v-btn>
-        <v-btn v-if="fed.orcidLoginUrl" color="success" size="large" prepend-icon="mdi-alpha-o-circle" :href="orcidHref">Se connecter avec ORCID</v-btn>
+        <v-btn v-if="fed.loginUrl" color="primary" size="large" prepend-icon="mdi-school-outline" :href="federationHref">Choose my institution</v-btn>
+        <v-btn v-if="fed.orcidLoginUrl" color="success" size="large" prepend-icon="mdi-alpha-o-circle" :href="orcidHref">Sign in with ORCID</v-btn>
       </div>
     </section>
 
     <section class="gs-panel pa-6 mt-4">
-      <h2>{{ fed.loginUrl || fed.orcidLoginUrl ? 'Avec un compte local' : 'Compte' }}</h2>
-      <p v-if="fed.loginUrl || fed.orcidLoginUrl" class="text-muted mt-1 mb-4">Pour les personnes hors fédération, sur invitation d'un administrateur.</p>
+      <h2>{{ fed.loginUrl || fed.orcidLoginUrl ? 'With a local account' : 'Account' }}</h2>
+      <p v-if="fed.loginUrl || fed.orcidLoginUrl" class="text-muted mt-1 mb-4">For people outside the federation, by invitation from an administrator.</p>
       <v-form class="mt-3" @submit.prevent="submit">
         <v-text-field v-model="email" label="E-mail" type="email" autocomplete="username" />
-        <v-text-field v-model="password" label="Mot de passe" type="password" autocomplete="current-password" />
+        <v-text-field v-model="password" label="Password" type="password" autocomplete="current-password" />
         <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
-        <v-btn type="submit" :color="fed.loginUrl || fed.orcidLoginUrl ? undefined : 'primary'" :variant="fed.loginUrl || fed.orcidLoginUrl ? 'outlined' : 'flat'" :loading="busy" :disabled="!email || !password">Se connecter</v-btn>
+        <v-btn type="submit" :color="fed.loginUrl || fed.orcidLoginUrl ? undefined : 'primary'" :variant="fed.loginUrl || fed.orcidLoginUrl ? 'outlined' : 'flat'" :loading="busy" :disabled="!email || !password">Sign in</v-btn>
       </v-form>
     </section>
   </div>
@@ -54,10 +54,10 @@ async function submit() {
   try {
     await auth.login(email.value, password.value)
     await siteStore.reload()
-    ui.notify(`Bienvenue ${auth.user.firstname || ''}`.trim())
+    ui.notify(`Welcome ${auth.user.firstname || ''}`.trim())
     router.replace(next.value)
   } catch (e) {
-    error.value = errorMessage(e, 'Connexion impossible')
+    error.value = errorMessage(e, 'Unable to sign in')
   } finally {
     busy.value = false
   }

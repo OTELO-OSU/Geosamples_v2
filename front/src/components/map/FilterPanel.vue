@@ -1,15 +1,15 @@
 <template>
   <div class="gs-filters">
     <v-text-field
-      v-model="q" prepend-inner-icon="mdi-magnify" label="Rechercher" placeholder="Titre, description, nom de point…"
+      v-model="q" prepend-inner-icon="mdi-magnify" label="Search" placeholder="Title, description, point name…"
       clearable hide-details density="compact" @click:clear="q = ''"
     />
 
     <section v-if="facets?.keywords?.length" class="gs-filters__block">
-      <h3 class="gs-filters__h">Mots-clés</h3>
+      <h3 class="gs-filters__h">Keywords</h3>
       <v-autocomplete
         :model-value="modelValue.kw" :items="facets.keywords" item-title="value" item-value="value"
-        multiple chips closable-chips hide-details density="compact" placeholder="Choisir…"
+        multiple chips closable-chips hide-details density="compact" placeholder="Select…"
         @update:model-value="set({ kw: $event })"
       >
         <template #item="{ props: p, item }">
@@ -19,11 +19,11 @@
     </section>
 
     <section v-if="natureOptions.length" class="gs-filters__block">
-      <h3 class="gs-filters__h">Type de mesure</h3>
+      <h3 class="gs-filters__h">Measurement type</h3>
       <v-autocomplete
         :model-value="modelValue.nature || []"
         :items="natureOptions" item-title="value" item-value="value"
-        multiple chips closable-chips hide-details density="compact" placeholder="Choisir…"
+        multiple chips closable-chips hide-details density="compact" placeholder="Select…"
         @update:model-value="set({ nature: $event })"
       >
         <template #item="{ props: p, item }">
@@ -35,11 +35,11 @@
     </section>
 
     <section v-if="sampleTypeOptions.length" class="gs-filters__block">
-      <h3 class="gs-filters__h">Type d'échantillon</h3>
+      <h3 class="gs-filters__h">Sample type</h3>
       <v-autocomplete
         :model-value="modelValue['sample-type'] || []"
         :items="sampleTypeOptions" item-title="value" item-value="value"
-        multiple chips closable-chips hide-details density="compact" placeholder="Choisir…"
+        multiple chips closable-chips hide-details density="compact" placeholder="Select…"
         @update:model-value="set({ 'sample-type': $event })"
       >
         <template #item="{ props: p, item }">
@@ -64,7 +64,7 @@
       <v-autocomplete
         v-if="fd.filter === 'select'"
         :model-value="modelValue.f[fd.key] || []" :items="optionsFor(fd)" item-title="value" item-value="value"
-        multiple chips closable-chips hide-details density="compact" placeholder="Toutes les valeurs"
+        multiple chips closable-chips hide-details density="compact" placeholder="All values"
         @update:model-value="setField(fd.key, $event)"
       >
         <template #item="{ props: p, item }">
@@ -88,7 +88,7 @@
     </section>
 
     <v-btn v-if="count" block variant="tonal" class="mt-4" prepend-icon="mdi-filter-remove-outline" @click="$emit('update:modelValue', emptyFilters())">
-      Effacer les filtres ({{ count }})
+      Clear filters ({{ count }})
     </v-btn>
   </div>
 </template>
@@ -107,7 +107,7 @@ const emit = defineEmits(['update:modelValue'])
 const filterFields = computed(() => props.fields.filter((f) => f.filter))
 const count = computed(() => activeCount({ ...props.modelValue, from: null, to: null }))
 
-// Recherche texte avec temporisation
+// Debounced text search
 const q = ref(props.modelValue.q)
 let t = null
 watch(q, (v) => { clearTimeout(t); t = setTimeout(() => set({ q: v || '' }), 350) })
@@ -125,7 +125,7 @@ function optionsFor(fd) {
   const vals = props.facets?.fields?.[fd.key]?.values
   if (vals?.length) {
     const seen = new Set(vals.map((v) => v.value))
-    // les valeurs sélectionnées restent proposées même si elles n'ont plus de résultat
+    // Keep selected values available even when they no longer have results.
     const extra = (props.modelValue.f[fd.key] || []).filter((v) => !seen.has(v)).map((v) => ({ value: v, count: 0 }))
     return [...vals, ...extra]
   }
@@ -135,7 +135,7 @@ function optionsFor(fd) {
 function withSelected(list, selected) {
   const vals = list || []
   const seen = new Set(vals.map((v) => v.value))
-  // les valeurs sélectionnées restent proposées même sans résultat
+  // Keep selected values available even when they have no results.
   const extra = (selected || []).filter((v) => !seen.has(v)).map((v) => ({ value: v, count: 0 }))
   return [...vals, ...extra]
 }

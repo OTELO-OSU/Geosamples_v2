@@ -5,34 +5,34 @@
       <header class="mb-6">
         <h1>{{ heading }}</h1>
         <p v-if="!uuid" class="text-muted mt-2">
-          Pour déposer plusieurs jeux d'un coup, utilisez l'<router-link to="/importer">import depuis un tableur</router-link>.
+          To submit multiple datasets at once, use the <router-link to="/importer">spreadsheet import</router-link>.
         </p>
         <v-alert v-if="ds?.status === 'published' && site.settings.moderation && !site.me.canManage" type="info" variant="tonal" density="compact" class="mt-3">
-          Ce jeu est publié : vos modifications devront être validées par un responsable avant d'apparaître sur la carte.
+          This dataset is published. A manager must review your changes before they appear on the map.
         </v-alert>
       </header>
 
       <v-form @submit.prevent>
         <section class="gs-sec">
           <h2>Description</h2>
-          <v-text-field v-model="form.title" label="Titre *" :error-messages="errors.title" counter="500" />
-          <v-textarea v-model="form.description" label="Description" auto-grow rows="4" hint="Contexte, protocole, contenu des fichiers…" persistent-hint />
+          <v-text-field v-model="form.title" label="Title *" :error-messages="errors.title" counter="500" />
+          <v-textarea v-model="form.description" label="Description" auto-grow rows="4" hint="Context, protocol, file contents…" persistent-hint />
           <v-combobox
-            v-model="form.keywords" :items="keywordSuggestions" :label="`Mots-clés${site.settings.requireKeywords ? ' *' : ''}`" multiple chips closable-chips
-            hint="Validez chaque mot-clé avec Entrée" persistent-hint :error-messages="errors.keywords" class="mt-2"
+            v-model="form.keywords" :items="keywordSuggestions" :label="`Keywords${site.settings.requireKeywords ? ' *' : ''}`" multiple chips closable-chips
+            hint="Press Enter after each keyword" persistent-hint :error-messages="errors.keywords" class="mt-2"
           />
-          <h3 class="mt-6 mb-2">Auteurs</h3>
+          <h3 class="mt-6 mb-2">Authors</h3>
           <div v-for="(a, i) in form.authors" :key="i" class="gs-author">
-            <v-text-field v-model="a.name" label="Nom" density="compact" hide-details />
+            <v-text-field v-model="a.name" label="Name" density="compact" hide-details />
             <v-text-field v-model="a.affiliation" label="Affiliation" density="compact" hide-details />
             <v-text-field v-model="a.orcid" label="ORCID" density="compact" placeholder="0000-0000-0000-0000" :error-messages="errors[`authors[${i}].orcid`]" :hide-details="!errors[`authors[${i}].orcid`]" />
-            <v-btn icon="mdi-close" variant="text" size="small" aria-label="Retirer l'auteur" @click="form.authors.splice(i, 1)" />
+            <v-btn icon="mdi-close" variant="text" size="small" aria-label="Remove author" @click="form.authors.splice(i, 1)" />
           </div>
-          <v-btn variant="text" size="small" prepend-icon="mdi-plus" @click="form.authors.push({ name: '', affiliation: '', orcid: '' })">Ajouter un auteur</v-btn>
+          <v-btn variant="text" size="small" prepend-icon="mdi-plus" @click="form.authors.push({ name: '', affiliation: '', orcid: '' })">Add an author</v-btn>
           <div class="gs-grid mt-4">
-            <v-select v-model="form.license" :items="LICENSES" label="Licence" />
-            <v-select v-model="form.accessRight" :items="accessItems" label="Accès aux fichiers" />
-            <v-select v-model="form.language" :items="LANGUAGES" label="Langue des métadonnées" clearable />
+            <v-select v-model="form.license" :items="LICENSES" label="License" />
+            <v-select v-model="form.accessRight" :items="accessItems" label="File access" />
+            <v-select v-model="form.language" :items="LANGUAGES" label="Metadata language" clearable />
           </div>
         </section>
 
@@ -47,33 +47,33 @@
         </section>
 
         <section class="gs-sec">
-          <h2>Localisation et dates</h2>
+          <h2>Location and dates</h2>
           <div class="gs-grid mb-2">
-            <v-text-field v-model="form.temporalStart" label="Début de la période couverte" placeholder="2021, 2021-06 ou 2021-06-15" :error-messages="errors.temporalStart" hint="Laissez vide pour la déduire des dates des points" persistent-hint />
-            <v-text-field v-model="form.temporalEnd" label="Fin de la période" placeholder="facultatif" :error-messages="errors.temporalEnd" />
+            <v-text-field v-model="form.temporalStart" label="Start of period covered" placeholder="2021, 2021-06, or 2021-06-15" :error-messages="errors.temporalStart" hint="Leave blank to infer it from the point dates" persistent-hint />
+            <v-text-field v-model="form.temporalEnd" label="End of period" placeholder="optional" :error-messages="errors.temporalEnd" />
           </div>
           <PointsEditor v-model="form.points" :site="site" :errors="errors" class="mt-4" />
         </section>
 
         <section class="gs-sec">
-          <h2>Fichiers</h2>
+          <h2>Files</h2>
           <FilesManager v-model:queue="queue" :existing="ds?.files || []" @delete="deleteFile" />
         </section>
 
         <section class="gs-sec">
-          <h2>Publication dans ORDaR</h2>
-          <p class="text-muted mb-3">Une fois le jeu publié dans l'entrepôt ORDaR, renseignez son DOI : la fiche affichera le lien.</p>
+          <h2>Publication in ORDaR</h2>
+          <p class="text-muted mb-3">After publishing the dataset in the ORDaR repository, enter its DOI to display a link on the detail page.</p>
           <div class="gs-grid">
             <v-text-field v-model="form.doi" label="DOI" placeholder="10.24396/ORDAR-…" :error-messages="errors.doi" />
-            <v-text-field v-model="form.ordarUrl" label="Adresse de la fiche ORDaR" :error-messages="errors.ordarUrl" />
+            <v-text-field v-model="form.ordarUrl" label="ORDaR record URL" :error-messages="errors.ordarUrl" />
           </div>
         </section>
 
         <div class="gs-bar">
-          <span v-if="errorCount" class="text-error text-body-2"><v-icon size="18">mdi-alert-circle</v-icon> {{ errorCount }} champ{{ errorCount > 1 ? 's' : '' }} à corriger</span>
+          <span v-if="errorCount" class="text-error text-body-2"><v-icon size="18">mdi-alert-circle</v-icon> {{ errorCount }} field(s) need correction</span>
           <v-spacer />
-          <v-btn variant="text" @click="router.back()">Annuler</v-btn>
-          <v-btn v-if="canDraft" variant="outlined" :loading="saving === 'draft'" @click="save(false)">Enregistrer le brouillon</v-btn>
+          <v-btn variant="text" @click="router.back()">Cancel</v-btn>
+          <v-btn v-if="canDraft" variant="outlined" :loading="saving === 'draft'" @click="save(false)">Save draft</v-btn>
           <v-btn color="primary" :loading="saving === 'submit'" @click="save(true)">{{ submitLabel }}</v-btn>
         </div>
       </v-form>
@@ -108,7 +108,7 @@ const errors = ref({})
 const queue = ref([])
 const keywordSuggestions = ref([])
 const form = ref(blank())
-const accessItems = [{ value: 'open', title: 'Ouvert à tous' }, { value: 'restricted', title: 'Réservé aux membres du projet' }]
+const accessItems = [{ value: 'open', title: 'Open to everyone' }, { value: 'restricted', title: 'Restricted to project members' }]
 
 function blank() {
   const u = auth.user
@@ -122,11 +122,11 @@ function blank() {
 
 const dateStr = (v) => (v ? String(v).slice(0, 10) : '')
 
-const heading = computed(() => (props.uuid ? 'Modifier le jeu de données' : route.query.from ? 'Nouveau jeu (copie)' : 'Déposer un jeu de données'))
+const heading = computed(() => (props.uuid ? 'Edit dataset' : route.query.from ? 'New dataset (copy)' : 'Submit a dataset'))
 const groups = computed(() => {
   const out = []
   for (const f of site.value.fields.filter((x) => (x.scope || 'dataset') === 'dataset')) {
-    const name = f.group || 'Informations du projet'
+    const name = f.group || 'Project information'
     let g = out.find((x) => x.name === name)
     if (!g) out.push((g = { name, fields: [] }))
     g.fields.push(f)
@@ -136,8 +136,8 @@ const groups = computed(() => {
 const willPublish = computed(() => !site.value.settings.moderation || site.value.me.canManage)
 const canDraft = computed(() => !ds.value || ds.value.status !== 'published')
 const submitLabel = computed(() => {
-  if (ds.value?.status === 'published') return 'Enregistrer'
-  return willPublish.value ? 'Publier' : 'Soumettre à validation'
+  if (ds.value?.status === 'published') return 'Save'
+  return willPublish.value ? 'Publish' : 'Submit for review'
 })
 const errorCount = computed(() => Object.keys(errors.value).length)
 
@@ -149,7 +149,7 @@ onMounted(async () => {
       if (props.uuid) ds.value = d
       const copy = !props.uuid
       form.value = {
-        title: copy ? `${d.title} (copie)` : d.title,
+        title: copy ? `${d.title} (copy)` : d.title,
         description: d.description || '', keywords: [...d.keywords], language: d.language || null,
         authors: d.authors.map((a) => ({ name: a.name, affiliation: a.affiliation || '', orcid: a.orcid || '' })),
         license: d.license, accessRight: d.accessRight,

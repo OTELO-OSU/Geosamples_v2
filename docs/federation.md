@@ -1,23 +1,23 @@
-# Authentification par la fédération RENATER
+# Authentication via the RENATER federation
 
-L'application ne parle jamais directement aux fournisseurs d'identité des établissements. Deux
-architectures sont prises en charge, choisies par `FEDERATION_MODE`.
+The application never communicates directly with institutional identity providers. Two
+architectures are supported, selected by `FEDERATION_MODE`.
 
-## Mode `oidc` — Keycloak raccordé à RENATER (recommandé)
+## `oidc` mode — Keycloak connected to RENATER (recommended)
 
-C'est l'architecture de Projet_IGSN : un Keycloak est le seul fournisseur de service (SP SAML)
-déclaré dans la fédération ; il présente le WAYF/discovery et transmet l'identité à l'application en
-OpenID Connect. Un seul SP RENATER sert ainsi tous les sites, et le même Keycloak peut aussi servir
-ORDaR et l'application IGSN.
+This is the architecture used by Projet_IGSN: a Keycloak is the only service provider (SAML SP)
+registered with the federation; it presents the WAYF/discovery page and passes the user's identity
+to the application using OpenID Connect. A single RENATER SP thus serves all sites, and the same
+Keycloak can also serve ORDaR and the IGSN application.
 
-1. **Keycloak** : dans le royaume (ex. `otelo`), ajouter un fournisseur d'identité SAML alimenté par
-   les métadonnées des IdP de la fédération RENATER (directement ou via un proxy SATOSA, comme pour
-   Projet_IGSN) et déclarer Keycloak comme SP auprès de RENATER ; mapper `mail`, `givenName`, `sn`,
-   `eduPersonPrincipalName` vers les attributs utilisateur, et exposer `eduPersonPrincipalName` dans
-   la réponse userinfo (mapper « User Attribute » sur le client).
-2. **Client** `geosamples` : confidentiel, flux standard (code), PKCE S256 ; URI de redirection :
-   `https://<chaque nom d'hôte>/api/auth/federation/callback` (un par site, plus le portail).
-3. **Application** (`.env`) :
+1. **Keycloak**: in the realm (e.g. `otelo`), add a SAML identity provider populated with
+   RENATER federation IdP metadata (directly or through a SATOSA proxy, as with Projet_IGSN) and
+   register Keycloak as an SP with RENATER; map `mail`, `givenName`, `sn`, and
+   `eduPersonPrincipalName` to user attributes, and expose `eduPersonPrincipalName` in the userinfo
+   response (“User Attribute” mapper on the client).
+2. **Client** `geosamples`: confidential, standard (code) flow, PKCE S256; redirect URI:
+   `https://<each-hostname>/api/auth/federation/callback` (one per site, plus the portal).
+3. **Application** (`.env`):
    ```
    FEDERATION_MODE=oidc
    OIDC_ISSUER=https://sso.otelo.univ-lorraine.fr/realms/otelo
@@ -25,17 +25,17 @@ ORDaR et l'application IGSN.
    OIDC_CLIENT_SECRET=…
    ```
 
-Déroulé : le bouton « Choisir mon établissement » mène à `/api/auth/federation/login?return=…` →
-Keycloak → établissement → `/api/auth/federation/callback`. Le backend échange le code (avec le
-vérificateur PKCE et un `state` signé lié à un cookie), lit les attributs sur `userinfo`, crée ou
-retrouve le compte (par identifiant fédéré, sinon par e-mail), pose le cookie de session et revient à
-la page d'origine.
+Flow: the “Choose my institution” button opens `/api/auth/federation/login?return=…` → Keycloak →
+institution → `/api/auth/federation/callback`. The backend exchanges the code (using the PKCE
+verifier and a signed `state` bound to a cookie), reads attributes from `userinfo`, creates or finds
+the account (by federated identifier, or by email), sets the session cookie, and returns to the
+original page.
 
-## Mode `shibboleth` — en-têtes Apache mod_shib (ou CAS)
+## `shibboleth` mode — Apache mod_shib headers (or CAS)
 
-Comme `/api/loginCAS` d'ORDaR v2 : Apache (SP Shibboleth) protège une seule URL et transmet les
-attributs en en-têtes. Chaque nom d'hôte servi doit alors être déclaré auprès de RENATER, ou un
-nom d'hôte unique de connexion doit être utilisé.
+As with ORDaR v2's `/api/loginCAS`: Apache (Shibboleth SP) protects a single URL and passes
+attributes in headers. Each hostname served must then be registered with RENATER, or a single
+login hostname must be used.
 
 ```apache
 <Location /api/auth/shibboleth>
@@ -43,7 +43,7 @@ nom d'hôte unique de connexion doit être utilisé.
     ShibRequestSetting requireSession 1
     ShibUseHeaders On
     Require valid-user
-    # Secret partagé : le backend refuse les en-têtes qui ne viennent pas d'ici
+    # Shared secret: the backend rejects headers that do not originate here
     RequestHeader set X-Shib-Secret "même-valeur-que-SHIB_SHARED_SECRET"
 </Location>
 ```
@@ -54,11 +54,11 @@ SHIB_HEADERS='{"id":"eppn","email":"mail","firstname":"givenname","lastname":"sn
 SHIB_SHARED_SECRET=…
 ```
 
-## Connexion ORCID
+## ORCID sign-in
 
-ORCID est disponible en complément du mode de fédération choisi ci-dessus. Le client ORCID doit
-autoriser l'URL de callback `https://<nom d'hôte>/api/auth/orcid/callback` pour chaque hôte servi.
-Configurer les identifiants du client dans `.env` :
+ORCID is available in addition to the federation mode selected above. The ORCID client must allow
+the callback URL `https://<hostname>/api/auth/orcid/callback` for each hostname served.
+Configure the client credentials in `.env`:
 
 ```
 ORCID_BASE_URL=https://orcid.org
@@ -66,21 +66,20 @@ ORCID_CLIENT_ID=…
 ORCID_CLIENT_SECRET=…
 ```
 
-Pour l'environnement de test ORCID, utiliser `https://sandbox.orcid.org` comme `ORCID_BASE_URL`.
-Le bouton ORCID n'est affiché que lorsque les deux identifiants sont configurés. La première
-connexion crée automatiquement le compte, comme pour OIDC ; l'application a besoin d'une adresse
-e-mail valide et utilise d'abord l'adresse renvoyée par ORCID, puis l'adresse publique du profil
-ORCID. Si aucune adresse n'est disponible, rendez une adresse publique dans ORCID et réessayez.
-L'identifiant ORCID est conservé dans le profil du compte.
+For the ORCID test environment, use `https://sandbox.orcid.org` as `ORCID_BASE_URL`.
+The ORCID button is displayed only when both credentials are configured. The first sign-in
+automatically creates an account, as with OIDC; the application requires a valid email address and
+uses the address returned by ORCID first, then the public address on the ORCID profile. If no
+address is available, make an address public in ORCID and try again. The ORCID identifier is saved
+in the account profile.
 
-## Comptes locaux
+## Local accounts
 
-Toujours disponibles (formulaire « Avec un compte local ») pour amorcer l'instance et pour les
-partenaires hors fédération. Ils sont créés par un administrateur (`app:user:create` ou
-« Administration générale → Comptes »). Les tentatives de connexion sont limitées par IP et par compte.
+Always available (the “With a local account” form) for initial setup and for partners outside the
+federation. An administrator creates them (`app:user:create` or “Global administration → Accounts”).
+Sign-in attempts are rate-limited per IP and per account.
 
-## Pré-autorisation
+## Pre-authorization
 
-Un responsable peut ajouter une personne à son site par son adresse e-mail avant sa première
-connexion : le compte fédéré est rattaché automatiquement lorsque l'établissement transmet la même
-adresse.
+A manager can add someone to their site using their email address before their first sign-in: the
+federated account is linked automatically when the institution provides the same address.

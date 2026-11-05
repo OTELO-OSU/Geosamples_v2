@@ -1,13 +1,13 @@
 <template>
   <div class="gs-map">
-    <div ref="el" class="gs-map__canvas" role="application" aria-label="Carte des jeux de données" />
+    <div ref="el" class="gs-map__canvas" role="application" aria-label="Dataset map" />
     <div v-if="loading" class="gs-map__loading"><v-progress-linear indeterminate color="primary" height="3" /></div>
     <div v-if="info" class="gs-map__count" aria-live="polite">{{ info }}</div>
     <MapLegend v-if="scale.legend.length" :title="legendTitle" :items="scale.legend" :kind="scale.kind" class="gs-map__legend" />
     <v-dialog v-model="ladderOpen" persistent no-click-animation :scrim="false" scroll-strategy="none" max-width="700" scrollable class="gs-ladder-dialog">
       <v-card>
         <v-card-title class="d-flex align-center">
-          <span class="text-body-1">Observations à cet emplacement</span>
+          <span class="text-body-1">Observations at this location</span>
           <v-spacer />
           <v-btn icon="mdi-close" variant="text" size="small" aria-label="Fermer" @click="ladderOpen = false" />
         </v-card-title>
@@ -20,10 +20,10 @@
 
 <script setup>
 /**
- * Carte des points de prélèvement.
- * Le serveur renvoie soit des regroupements (grille dépendant du zoom), soit les points
- * eux-mêmes ; dans ce dernier cas les observations d'un même jeu au même endroit (séries
- * temporelles) sont fusionnées en une station, puis markercluster gère l'affichage fin.
+ * Map of sampling points.
+ * The server returns clusters (grid size depends on zoom) or the points themselves;
+ * in the latter case, observations from the same dataset at the same location (time
+ * series) are merged into one station, then markercluster handles finer clustering.
  */
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch, nextTick } from 'vue'
 import api from '@/api/client'
@@ -38,7 +38,7 @@ const props = defineProps({
   site: { type: Object, required: true },
   params: { type: Object, default: () => ({}) },
   selected: { type: String, default: null },
-  focus: { type: Array, default: null }, // bbox [w,s,e,n] à cadrer
+  focus: { type: Array, default: null }, // bbox [w,s,e,n] to fit
 })
 const emit = defineEmits(['select', 'view'])
 
@@ -61,13 +61,13 @@ let pendingFocus = props.focus
 
 const colorBy = computed(() => props.site.map?.colorBy || 'none')
 const colorField = computed(() => props.site.fields?.find((f) => f.key === colorBy.value))
-const legendTitle = computed(() => ({ elevation: 'Altitude (m)', year: 'Année', status: 'Statut' })[colorBy.value] || colorField.value?.label || '')
+const legendTitle = computed(() => ({ elevation: 'Elevation (m)', year: 'Year', status: 'Status' })[colorBy.value] || colorField.value?.label || '')
 
 onMounted(async () => {
   await loadLeaflet()
   const cfg = props.site.map || {}
   const m = L.map(el.value, { zoomControl: false, worldCopyJump: true, preferCanvas: true })
-  L.control.zoom({ position: 'topright', zoomInTitle: 'Zoom avant', zoomOutTitle: 'Zoom arrière' }).addTo(m)
+  L.control.zoom({ position: 'topright', zoomInTitle: 'Zoom in', zoomOutTitle: 'Zoom out' }).addTo(m)
   L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(m)
 
   const base = {}
@@ -264,7 +264,7 @@ function tooltip(s) {
     meta.push(`${s.n} observations${ds.length ? ` (${fmtDate(ds[0])} – ${fmtDate(ds[ds.length - 1])})` : ''}`)
   } else if (s.date) meta.push(fmtDate(s.date))
   if (meta.length) lines.push(`<span>${meta.join(' · ')}</span>`)
-  if (s.status && s.status !== 'published') lines.push('<em>Non publié</em>')
+  if (s.status && s.status !== 'published') lines.push('<em>Unpublished</em>')
   return lines.join('<br>')
 }
 
@@ -282,7 +282,7 @@ defineExpose({ reload: load, map })
 }
 .gs-map__legend { position: absolute; right: 12px; bottom: 28px; z-index: 500; }
 
-/* Regroupements : cercle plein à la couleur du site, chiffre en Archivo */
+/* Clusters: solid circle in the site color, count in Archivo. */
 .gs-cluster {
   display: grid; place-items: center; border-radius: 50%;
   background: rgb(var(--v-theme-primary)); color: rgb(var(--v-theme-on-primary));

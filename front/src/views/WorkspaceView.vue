@@ -1,40 +1,40 @@
 <template>
   <div class="gs-page">
-    <h1>Mes données</h1>
+    <h1>My data</h1>
 
     <v-card v-if="!site.me.canContribute" class="gs-panel pa-5 mt-6" max-width="640">
       <template v-if="site.me.pending">
-        <h2>Demande envoyée</h2>
-        <p class="mt-2">Un responsable du site doit valider votre participation. Vous recevrez un e-mail dès que ce sera fait.</p>
+        <h2>Request submitted</h2>
+        <p class="mt-2">A site manager must approve your membership. You will receive an email when it is approved.</p>
       </template>
       <template v-else-if="site.settings.allowJoinRequests">
-        <h2>Contribuer à {{ site.title }}</h2>
-        <p class="mt-2 mb-4">Pour déposer des jeux de données, demandez à rejoindre le projet. Le responsable recevra votre demande.</p>
-        <v-textarea v-model="joinMessage" label="Message au responsable (facultatif)" rows="3" />
-        <v-btn color="primary" :loading="busy" @click="join">Demander à contribuer</v-btn>
+        <h2>Contribute to {{ site.title }}</h2>
+        <p class="mt-2 mb-4">To submit datasets, request access to the project. The manager will receive your request.</p>
+        <v-textarea v-model="joinMessage" label="Message to the manager (optional)" rows="3" />
+        <v-btn color="primary" :loading="busy" @click="join">Request contributor access</v-btn>
       </template>
-      <p v-else>Les contributions à ce site se font sur invitation. Contactez le responsable{{ site.settings.contactEmail ? ` (${site.settings.contactEmail})` : '' }}.</p>
+      <p v-else>Contributions to this site are by invitation only. Contact the manager{{ site.settings.contactEmail ? ` (${site.settings.contactEmail})` : '' }}.</p>
     </v-card>
 
     <template v-else>
       <v-tabs v-model="tab" color="primary" class="mt-4">
-        <v-tab value="mine">Mes jeux</v-tab>
-        <v-tab v-if="site.me.canManage" value="review">À valider<v-badge v-if="pendingCount" :content="pendingCount" inline color="amber-darken-2" /></v-tab>
-        <v-tab v-if="site.me.canManage" value="all">Tous les jeux du site</v-tab>
+        <v-tab value="mine">My datasets</v-tab>
+        <v-tab v-if="site.me.canManage" value="review">Pending review<v-badge v-if="pendingCount" :content="pendingCount" inline color="amber-darken-2" /></v-tab>
+        <v-tab v-if="site.me.canManage" value="all">All site datasets</v-tab>
       </v-tabs>
       <div class="d-flex flex-wrap align-center ga-3 my-4">
-        <v-text-field v-model="q" prepend-inner-icon="mdi-magnify" label="Rechercher" density="compact" hide-details clearable style="max-width: 320px" />
-        <v-select v-if="tab !== 'review'" v-model="status" :items="statusItems" label="Statut" density="compact" hide-details clearable style="max-width: 240px" />
+        <v-text-field v-model="q" prepend-inner-icon="mdi-magnify" label="Search" density="compact" hide-details clearable style="max-width: 320px" />
+        <v-select v-if="tab !== 'review'" v-model="status" :items="statusItems" label="Status" density="compact" hide-details clearable style="max-width: 240px" />
         <v-spacer />
         <v-btn variant="outlined" prepend-icon="mdi-table-arrow-down" :disabled="!selection.length" :loading="exporting" @click="exportSel">
-          Exporter pour modification ({{ selection.length }})
+          Export for editing ({{ selection.length }})
         </v-btn>
-        <v-btn color="primary" prepend-icon="mdi-plus" to="/deposer">Déposer</v-btn>
+        <v-btn color="primary" prepend-icon="mdi-plus" to="/deposer">Submit</v-btn>
       </div>
       <v-data-table-server
         v-model="selection" :headers="headers" :items="items" :items-length="total" :loading="loading"
         :items-per-page="perPage" :page="page" item-value="uuid" show-select class="gs-panel"
-        no-data-text="Aucun jeu pour l'instant. Déposez-en un via le formulaire ou importez un tableur."
+        no-data-text="No datasets yet. Submit one using the form or import a spreadsheet."
         @update:options="(o) => { page = o.page; perPage = o.itemsPerPage; load() }"
       >
         <template #item.title="{ item }"><router-link :to="`/jeux/${item.uuid}`" class="gs-tlink">{{ item.title }}</router-link></template>
@@ -42,12 +42,12 @@
         <template #item.period="{ item }">{{ fmtPeriod(item.temporalStart, item.temporalEnd) }}</template>
         <template #item.updatedAt="{ item }">{{ fmtDate(item.updatedAt) }}</template>
         <template #item.actions="{ item }">
-          <v-btn icon="mdi-pencil-outline" variant="text" size="small" :to="`/jeux/${item.uuid}/modifier`" :aria-label="`Modifier ${item.title}`" />
+          <v-btn icon="mdi-pencil-outline" variant="text" size="small" :to="`/jeux/${item.uuid}/modifier`" :aria-label="`Edit ${item.title}`" />
         </template>
       </v-data-table-server>
       <p class="text-muted text-body-2 mt-3">
-        « Exporter pour modification » produit un tableur avec l'identifiant de chaque jeu : après correction,
-        <router-link to="/importer">réimportez-le</router-link> pour mettre les jeux à jour en une fois.
+        “Export for editing” creates a spreadsheet containing each dataset's ID. After editing it,
+        <router-link to="/importer">re-import it</router-link> to update the datasets in one operation.
       </p>
     </template>
   </div>
@@ -80,12 +80,12 @@ const busy = ref(false)
 
 const statusItems = Object.entries(STATUS).map(([value, s]) => ({ value, title: s.label }))
 const headers = computed(() => [
-  { title: 'Titre', key: 'title', sortable: false },
-  { title: 'Statut', key: 'status', sortable: false },
-  { title: 'Période', key: 'period', sortable: false },
+  { title: 'Title', key: 'title', sortable: false },
+  { title: 'Status', key: 'status', sortable: false },
+  { title: 'Period', key: 'period', sortable: false },
   { title: 'Points', key: 'pointsCount', sortable: false, align: 'end' },
-  ...(tab.value !== 'mine' ? [{ title: 'Déposant', key: 'owner', sortable: false }] : []),
-  { title: 'Mis à jour', key: 'updatedAt', sortable: false },
+  ...(tab.value !== 'mine' ? [{ title: 'Submitter', key: 'owner', sortable: false }] : []),
+  { title: 'Updated', key: 'updatedAt', sortable: false },
   { title: '', key: 'actions', sortable: false, align: 'end' },
 ])
 
@@ -117,7 +117,7 @@ async function exportSel() {
   exporting.value = true
   try {
     const { data } = await api.get(`/api/sites/${site.value.slug}/export`, { params: { ids: selection.value.join(',') } })
-    await downloadTable({ columns: data.columns, rows: data.rows, filename: `${site.value.slug}-a-modifier`, title: site.value.title, instructions: site.value.importTemplate?.instructions })
+    await downloadTable({ columns: data.columns, rows: data.rows, filename: `${site.value.slug}-to-edit`, title: site.value.title, instructions: site.value.importTemplate?.instructions })
   } catch (e) {
     ui.error(errorMessage(e))
   } finally {
@@ -130,7 +130,7 @@ async function join() {
   try {
     await api.post(`/api/sites/${site.value.slug}/join`, { message: joinMessage.value })
     await siteStore.reload()
-    ui.notify('Demande envoyée')
+    ui.notify('Request submitted')
   } catch (e) {
     ui.error(errorMessage(e))
   } finally {

@@ -7,7 +7,7 @@
     <div class="d-flex align-center mt-4 mb-2">
       <h3>{{ modelValue.length }} point{{ modelValue.length > 1 ? 's' : '' }}</h3>
       <v-spacer />
-      <v-btn variant="tonal" size="small" prepend-icon="mdi-plus" @click="add">Ajouter un point</v-btn>
+      <v-btn variant="tonal" size="small" prepend-icon="mdi-plus" @click="add">Add point</v-btn>
     </div>
     <p v-if="errors.points" class="text-error text-body-2 mb-2">{{ errors.points }}</p>
 
@@ -22,32 +22,32 @@
         </v-expansion-panel-title>
         <v-expansion-panel-text>
           <div class="gs-grid">
-            <v-text-field v-model="p.name" label="Nom du point / station" class="gs-span-2" />
-            <v-select v-model="p.crs" :items="CRS_OPTIONS" label="Système de coordonnées" class="gs-span-2" @update:model-value="convert(p)" />
+            <v-text-field v-model="p.name" label="Point / station name" class="gs-span-2" />
+            <v-select v-model="p.crs" :items="CRS_OPTIONS" label="Coordinate system" class="gs-span-2" @update:model-value="convert(p)" />
             <template v-if="p.crs === 'EPSG:4326'">
-              <v-text-field v-model="p.latitude" label="Latitude *" type="number" step="any" hint="Degrés décimaux, ex. 48.6921" persistent-hint :error-messages="err(offset + i, 'latitude')" />
-              <v-text-field v-model="p.longitude" label="Longitude *" type="number" step="any" hint="Degrés décimaux, ex. 6.1844" persistent-hint :error-messages="err(offset + i, 'longitude')" />
+              <v-text-field v-model="p.latitude" label="Latitude *" type="number" step="any" hint="Decimal degrees, e.g. 48.6921" persistent-hint :error-messages="err(offset + i, 'latitude')" />
+              <v-text-field v-model="p.longitude" label="Longitude *" type="number" step="any" hint="Decimal degrees, e.g. 6.1844" persistent-hint :error-messages="err(offset + i, 'longitude')" />
             </template>
             <template v-else>
-              <v-text-field v-model="p.x" label="X / Est (m) *" type="number" step="any" @update:model-value="convert(p)" />
-              <v-text-field v-model="p.y" label="Y / Nord (m) *" type="number" step="any" @update:model-value="convert(p)" />
+              <v-text-field v-model="p.x" label="X / Easting (m) *" type="number" step="any" @update:model-value="convert(p)" />
+              <v-text-field v-model="p.y" label="Y / Northing (m) *" type="number" step="any" @update:model-value="convert(p)" />
               <p class="gs-span-2 text-body-2 text-muted mt-n2">
                 <template v-if="p._convError">{{ p._convError }}</template>
-                <template v-else-if="p.latitude !== ''">WGS84 : {{ p.latitude }}, {{ p.longitude }}</template>
+                <template v-else-if="p.latitude !== ''">WGS84: {{ p.latitude }}, {{ p.longitude }}</template>
               </p>
             </template>
-            <v-text-field v-model="p.elevation" label="Altitude" suffix="m" type="number" step="any" hint="Négative pour une profondeur" persistent-hint :error-messages="err(offset + i, 'elevation')" />
-            <v-text-field v-model="p.verticalDatum" label="Référentiel altimétrique" :placeholder="site.settings.verticalDatum || ''" />
-            <v-text-field v-model="p.observedAt" label="Date / début" placeholder="2024-05-17 ou 2024-05-17 10:30" :error-messages="err(offset + i, 'observedAt')" />
-            <v-text-field v-model="p.observedEnd" label="Fin (si période)" placeholder="facultatif" :error-messages="err(offset + i, 'observedEnd')" />
+            <v-text-field v-model="p.elevation" label="Elevation" suffix="m" type="number" step="any" hint="Negative for depth" persistent-hint :error-messages="err(offset + i, 'elevation')" />
+            <v-text-field v-model="p.verticalDatum" label="Vertical datum" :placeholder="site.settings.verticalDatum || ''" />
+            <v-text-field v-model="p.observedAt" label="Date / start" placeholder="2024-05-17 or 2024-05-17 10:30" :error-messages="err(offset + i, 'observedAt')" />
+            <v-text-field v-model="p.observedEnd" label="End (if a period)" placeholder="optional" :error-messages="err(offset + i, 'observedEnd')" />
             <FieldInput
               v-for="f in pointFields" :key="f.key" v-model="p.properties[f.key]" :field="f"
               :error="err(offset + i, `properties.${f.key}`)" :class="{ 'gs-span-2': f.type === 'textarea' }"
             />
           </div>
           <div class="d-flex justify-end mt-2">
-            <v-btn variant="text" size="small" prepend-icon="mdi-content-copy" @click="duplicate(offset + i)">Dupliquer</v-btn>
-            <v-btn variant="text" size="small" color="error" prepend-icon="mdi-delete-outline" :disabled="modelValue.length === 1" @click="remove(offset + i)">Retirer</v-btn>
+            <v-btn variant="text" size="small" prepend-icon="mdi-content-copy" @click="duplicate(offset + i)">Duplicate</v-btn>
+            <v-btn variant="text" size="small" color="error" prepend-icon="mdi-delete-outline" :disabled="modelValue.length === 1" @click="remove(offset + i)">Remove</v-btn>
           </div>
         </v-expansion-panel-text>
       </v-expansion-panel>
@@ -83,7 +83,7 @@ function add() {
 }
 function duplicate(i) {
   const src = props.modelValue[i]
-  props.modelValue.splice(i + 1, 0, { ...JSON.parse(JSON.stringify(src)), id: undefined, _k: `d${Date.now()}${k++}`, name: src.name ? `${src.name} (copie)` : '' })
+  props.modelValue.splice(i + 1, 0, { ...JSON.parse(JSON.stringify(src)), id: undefined, _k: `d${Date.now()}${k++}`, name: src.name ? `${src.name} (copy)` : '' })
   active.value = i + 1
   panel.value = i + 1
 }

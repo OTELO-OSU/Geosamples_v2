@@ -1,6 +1,6 @@
 # Architecture
 
-## Une instance, plusieurs sites
+## One instance, multiple sites
 
 ```
             nometal.otelo.univ-lorraine.fr ─┐
@@ -8,89 +8,88 @@
  geosamples.otelo.univ-lorraine.fr/s/<slug> ─┘   ProxyPreserveHost      └─► /api → php-fpm (Symfony) ─► PostgreSQL
 ```
 
-Le site courant est déterminé, dans cet ordre, par :
-1. le paramètre `{slug}` des routes `/api/sites/{slug}/…` ;
-2. l'en-tête `X-Site`, envoyé par le front quand il est servi sous `/s/<slug>/` ;
-3. le nom d'hôte de la requête (`site.hostnames`) ;
+The current site is determined, in this order, by:
+1. the `{slug}` parameter in `/api/sites/{slug}/…` routes;
+2. the `X-Site` header, sent by the frontend when served under `/s/<slug>/`;
+3. the request hostname (`site.hostnames`);
 4. `DEFAULT_SITE`.
 
-Sans site résolu, le front affiche le **portail** (liste des sites, administration générale).
+If no site is resolved, the frontend displays the **portal** (site list and global administration).
 
 ## Modèle de données
 
-| Table | Rôle |
+| Table | Purpose |
 |---|---|
-| `site` | Configuration complète d'un site : `hostnames`, textes (markdown), `theme`, `map` (centre, zoom, fonds, `colorBy`, `clusterMaxZoom`), `fields` (champs spécifiques), `import_template`, `settings` (modération, valeurs par défaut, contact…), `published`. |
-| `app_user` | Compte ; `federation_id` (eppn, `sub` OIDC ou identifiant ORCID) pour les comptes fédérés, `password` pour les comptes locaux, `ROLE_ADMIN` dans `roles`. |
-| `site_membership` | Rôle d'un compte sur un site : `responsable` ou `utilisateur`, statut `active` ou `pending` (demande d'adhésion). |
-| `dataset` | Jeu de données : métadonnées communes en colonnes, champs du site en `properties` (JSONB), `temporal_start/end`, `status`, `doi`/`ordar_url` une fois publié dans ORDaR. |
-| `sampling_point` | Point (station, échantillon) : `longitude`, `latitude` (WGS84), `elevation` + `vertical_datum`, `observed_at/observed_end`, saisie d'origine (`src_crs`, `src_x`, `src_y`), mesures par point en `properties` (JSONB). |
-| `dataset_file` | Fichiers (données, photos, documents), stockés sous `UPLOAD_DIR/<site>/<uuid>/`. |
-| `refresh_token` | Hash SHA-256 des refresh tokens (rotation à chaque usage). |
+| `site` | Complete site configuration: `hostnames`, text (Markdown), `theme`, `map` (center, zoom, basemaps, `colorBy`, `clusterMaxZoom`), `fields` (custom fields), `import_template`, `settings` (moderation, defaults, contact, etc.), and `published`. |
+| `app_user` | Account; `federation_id` (eppn, OIDC `sub`, or ORCID identifier) for federated accounts, `password` for local accounts, and `ROLE_ADMIN` in `roles`. |
+| `site_membership` | Account role on a site: `responsable` or `utilisateur`; status `active` or `pending` (membership request). |
+| `dataset` | Dataset: shared metadata in columns, site fields in `properties` (JSONB), `temporal_start/end`, `status`, and `doi`/`ordar_url` after publication in ORDaR. |
+| `sampling_point` | Point (station, sample): `longitude`, `latitude` (WGS84), `elevation` + `vertical_datum`, `observed_at/observed_end`, original coordinates (`src_crs`, `src_x`, `src_y`), and per-point measurements in `properties` (JSONB). |
+| `dataset_file` | Files (data, photos, documents), stored under `UPLOAD_DIR/<site>/<uuid>/`. |
+| `refresh_token` | SHA-256 hashes of refresh tokens (rotated on each use). |
 
-### Champs spécifiques d'un site
+### Site-specific fields
 
 ```json
-{ "key": "lithology", "label": "Lithologie", "type": "select", "options": ["Granite", "Grès"],
-  "required": true, "unit": null, "help": null, "group": "Géologie",
+{ "key": "lithology", "label": "Lithology", "type": "select", "options": ["Granite", "Sandstone"],
+  "required": true, "unit": null, "help": null, "group": "Geology",
   "filter": "select", "popup": true, "scope": "dataset" }
 ```
 
-- `type` : `text`, `textarea`, `number`, `integer`, `date`, `select`, `multiselect`, `boolean`, `url`
-- `scope` : `dataset` (une valeur par jeu) ou `point` (une valeur par point/date : mesures d'une série temporelle)
-- `filter` : `select`, `range` ou `text` pour l'exposer dans le panneau de filtres ; les valeurs proposées et leurs effectifs sont calculés à la volée (`/facets`).
+- `type`: `text`, `textarea`, `number`, `integer`, `date`, `select`, `multiselect`, `boolean`, `url`
+- `scope`: `dataset` (one value per dataset) or `point` (one value per point/date: time-series measurements)
+- `filter`: `select`, `range`, or `text` to expose it in the filter panel; available values and counts are calculated on demand (`/facets`).
 
-Les valeurs sont contrôlées et normalisées (nombres à virgule, listes insensibles à la casse et aux
-accents, oui/non…) par `FieldSchema`. Le remplacement des formulaires `form_<projet>.twig` de
-geo-samples par cette définition en base supprime tout développement par projet.
+Values are validated and normalized (decimal separators, case- and accent-insensitive lists,
+yes/no, etc.) by `FieldSchema`. Replacing geo-samples' `form_<project>.twig` forms with this
+database definition eliminates project-specific development.
 
-## Autorisations
+## Authorization
 
 | | public | connecté non membre | utilisateur | responsable | admin |
 |---|---|---|---|---|---|
-| Voir la carte et les jeux publiés | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Télécharger les fichiers d'un jeu en accès ouvert | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Télécharger les fichiers d'un jeu restreint | | | ✓ | ✓ | ✓ |
-| Demander à contribuer | | ✓ | | | |
-| Déposer, importer, modifier ses jeux | | | ✓ | ✓ | ✓ |
-| Supprimer ses jeux non publiés | | | ✓ | ✓ | ✓ |
-| Valider / refuser / dépublier, modifier tous les jeux du site | | | | ✓ | ✓ |
-| Configurer le site, gérer ses membres | | | | ✓ | ✓ |
-| Créer des sites, noms d'hôte, comptes, administrateurs | | | | | ✓ |
+| View the map and published datasets | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Download files from an open dataset | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Download files from a restricted dataset | | | ✓ | ✓ | ✓ |
+| Request contributor access | | ✓ | | | |
+| Submit, import, and edit own datasets | | | ✓ | ✓ | ✓ |
+| Delete own unpublished datasets | | | ✓ | ✓ | ✓ |
+| Approve / reject / unpublish, edit all site datasets | | | | ✓ | ✓ |
+| Configure the site and manage its members | | | | ✓ | ✓ |
+| Create sites, hostnames, accounts, and administrators | | | | | ✓ |
 
-Règles centralisées dans `backend/src/Service/Permissions.php`. Avec la modération activée, un dépôt
-d'utilisateur passe par l'état « soumis » ; toute modification d'un jeu publié par un utilisateur le
-renvoie en validation.
+Rules are centralized in `backend/src/Service/Permissions.php`. When moderation is enabled, user
+submissions enter the “submitted” state; any changes a user makes to a published dataset send it
+back for review.
 
-## Carte : regroupement selon le zoom
+## Map: clustering by zoom level
 
 `GET /api/sites/{slug}/map?zoom=&bbox=&…filtres` :
-- si la vue contient peu de points (≤ 1 500) ou que le zoom dépasse `clusterMaxZoom`, les points sont renvoyés tels quels (markercluster affine côté navigateur) ;
-- sinon PostgreSQL agrège les points sur une grille Web-Mercator de 80 px à ce zoom (`GROUP BY floor(x/maille), floor(y/maille)`) et renvoie centroïdes, effectifs et emprises ; un clic sur un regroupement zoome sur son emprise.
+- if the view contains few points (≤ 1,500) or the zoom exceeds `clusterMaxZoom`, points are returned as-is (markercluster refines them in the browser);
+- otherwise, PostgreSQL aggregates points on an 80 px Web Mercator grid at that zoom (`GROUP BY floor(x/cell), floor(y/cell)`) and returns centroids, counts, and extents; clicking a cluster zooms to its extent.
 
-Aucune extension (PostGIS, Elasticsearch) n'est requise ; l'index `(latitude, longitude)` suffit pour
-quelques millions de points. PostGIS pourra être ajouté si des géométries non ponctuelles
-(lignes, polygones) deviennent nécessaires.
+No extensions (PostGIS, Elasticsearch) are required; the `(latitude, longitude)` index is sufficient
+for a few million points. PostGIS can be added if non-point geometries (lines, polygons) become necessary.
 
-## Format d'import
+## Import format
 
 Une ligne = un point. Colonnes communes :
 
-| Colonne | Niveau | Contenu |
+| Column | Level | Contents |
 |---|---|---|
-| `dataset_id` | jeu | UUID d'un jeu existant → **mise à jour** (tous ses points sont remplacés) |
-| `dataset_ref` | jeu | Regroupe les lignes d'un même jeu |
-| `title`, `description`, `keywords`, `authors`, `license`, `access_right`, `language`, `temporal_start`, `temporal_end`, `doi` | jeu | lus sur la première ligne renseignée du groupe ; listes séparées par « ; », auteurs `Nom (Affiliation)` |
-| `point_name`, `longitude`, `latitude`, `elevation`, `vertical_datum`, `observed_at`, `observed_end` | point | dates : `AAAA`, `AAAA-MM`, `AAAA-MM-JJ`, `JJ/MM/AAAA`, ISO 8601, numéro de série Excel |
-| `crs`, `x`, `y` | point | coordonnées projetées converties en WGS84 dans le navigateur (proj4) |
-| `<clé de champ>` | selon le champ | champs spécifiques du site |
+| `dataset_id` | dataset | UUID of an existing dataset → **update** (all its points are replaced) |
+| `dataset_ref` | dataset | Groups rows belonging to the same dataset |
+| `title`, `description`, `keywords`, `authors`, `license`, `access_right`, `language`, `temporal_start`, `temporal_end`, `doi` | dataset | Read from the first populated row in the group; lists are separated by “;”, authors use `Name (Affiliation)` |
+| `point_name`, `longitude`, `latitude`, `elevation`, `vertical_datum`, `observed_at`, `observed_end` | point | Dates: `YYYY`, `YYYY-MM`, `YYYY-MM-DD`, `DD/MM/YYYY`, ISO 8601, or Excel serial number |
+| `crs`, `x`, `y` | point | Projected coordinates converted to WGS84 in the browser (proj4) |
+| `<field key>` | depends on field | Site-specific fields |
 
-Les en-têtes sont reconnus par leur clé ou leur libellé ; l'utilisateur peut corriger la
-correspondance avant le contrôle. L'import est transactionnel (tout ou rien).
+Headers are matched by key or label; users can correct the mapping before validation. Imports are
+transactional (all or nothing).
 
 ## API
 
-Routes JSON sous `/api` (liste détaillée en tête de chaque contrôleur) :
+JSON routes under `/api` (see the top of each controller for the full list):
 
 - `GET /api/context`, `GET /api/sites`, `GET|PUT /api/sites/{slug}`, `POST /api/sites/{slug}/logo`
 - `GET /api/sites/{slug}/map|facets|datasets`, `POST /api/sites/{slug}/datasets`, `GET|PUT|DELETE /api/sites/{slug}/datasets/{uuid}`, `POST …/{uuid}/status`, `POST|DELETE …/{uuid}/files`, `GET /api/files/{id}`
@@ -99,5 +98,5 @@ Routes JSON sous `/api` (liste détaillée en tête de chaque contrôleur) :
 - `POST /api/auth/login|refresh|logout`, `GET /api/auth/federation/login|callback`, `GET /api/auth/orcid/login|callback`, `GET /api/auth/shibboleth`, `GET|PATCH /api/me`
 - `GET|POST|PATCH /api/admin/users…`, `POST|DELETE /api/admin/sites…`
 
-Filtres communs : `q`, `kw`, `from`, `to`, `elevMin`, `elevMax`, `bbox=w,s,e,n`, `f[<clé>]=a,b`,
+Common filters: `q`, `kw`, `from`, `to`, `elevMin`, `elevMax`, `bbox=w,s,e,n`, `f[<key>]=a,b`,
 `f[<clé>][min|max]`, `scope=public|mine|manage`, `status`.

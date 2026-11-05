@@ -14,7 +14,7 @@
       </v-alert>
       <div v-if="ds.doi || ds.ordarUrl" class="gs-detail__ordar">
         <v-icon size="18" color="primary">mdi-database-check-outline</v-icon>
-        Publié dans l'entrepôt ORDaR
+        Published in the ORDaR repository
         <a v-if="ds.doi" :href="`https://doi.org/${ds.doi}`" target="_blank" rel="noopener">doi:{{ ds.doi }}</a>
         <a v-else :href="ds.ordarUrl" target="_blank" rel="noopener">voir la fiche</a>
       </div>
@@ -27,7 +27,7 @@
       <section>
         <h2 class="gs-h">Description</h2>
         <dl class="gs-meta">
-          <template v-if="ds.keywords?.length"><dt>Mots-clés</dt><dd><v-chip v-for="k in ds.keywords" :key="k" size="small" class="mr-1 mb-1" variant="outlined">{{ k }}</v-chip></dd></template>
+          <template v-if="ds.keywords?.length"><dt>Keywords</dt><dd><v-chip v-for="k in ds.keywords" :key="k" size="small" class="mr-1 mb-1" variant="outlined">{{ k }}</v-chip></dd></template>
           <template v-for="r in datasetRows" :key="r.f.key">
             <dt>{{ r.f.label }}</dt>
             <dd v-if="r.kind === 'names'">
@@ -36,12 +36,12 @@
             <dd v-else>{{ plainText(r.f, r.v) }}</dd>
           </template>
           <template v-if="ds.license"><dt>Licence</dt><dd>{{ ds.license }}</dd></template>
-          <dt>Accès aux fichiers</dt><dd>{{ ds.accessRight === 'open' ? 'Ouvert' : 'Réservé aux membres du projet' }}</dd>
-          <template v-if="ds.language"><dt>Langue</dt><dd>{{ ds.language === 'fr' ? 'Français' : ds.language === 'en' ? 'Anglais' : ds.language }}</dd></template>
-          <dt>Mis à jour</dt><dd>{{ fmtDate(ds.updatedAt) }}</dd>
+          <dt>File access</dt><dd>{{ ds.accessRight === 'open' ? 'Open' : 'Restricted to project members' }}</dd>
+          <template v-if="ds.language"><dt>Language</dt><dd>{{ ds.language === 'fr' ? 'French' : ds.language === 'en' ? 'English' : ds.language }}</dd></template>
+          <dt>Updated</dt><dd>{{ fmtDate(ds.updatedAt) }}</dd>
 
           <template v-if="referent">
-            <dt>Référent</dt>
+            <dt>Contact</dt>
             <dd>
               {{ referent.name }}
               <a v-if="referent.mail" :href="`mailto:${referent.mail}`">{{ referent.mail }}</a>
@@ -52,10 +52,10 @@
       </section>
 
       <section v-if="methodologies.length" class="mt-8">
-      <h2 class="gs-h">Méthodologie</h2>
+      <h2 class="gs-h">Methodology</h2>
       <dl class="gs-meta">
         <template v-for="(m, i) in methodologies" :key="i">
-          <dt>{{ m.name || 'Méthode' }}</dt>
+          <dt>{{ m.name || 'Method' }}</dt>
           <dd>{{ m.description }}</dd>
         </template>
       </dl>
@@ -66,7 +66,7 @@
         <MiniMap :points="ds.points" :basemap="site.map?.defaultBasemap" />
         <dl v-if="ds.points.length === 1" class="gs-meta mt-3">
           <template v-if="p0.name"><dt>Point</dt><dd>{{ p0.name }}</dd></template>
-          <dt>Coordonnées (WGS84)</dt><dd class="gs-num">{{ fmtNumber(p0.latitude, 6) }}, {{ fmtNumber(p0.longitude, 6) }}</dd>
+          <dt>Coordinates (WGS84)</dt><dd class="gs-num">{{ fmtNumber(p0.latitude, 6) }}, {{ fmtNumber(p0.longitude, 6) }}</dd>
           <template v-if="p0.srcCrs && p0.srcCrs !== 'EPSG:4326'"><dt>Saisie d'origine</dt><dd class="gs-num">{{ p0.srcCrs }} — X {{ fmtNumber(p0.srcX, 2) }}, Y {{ fmtNumber(p0.srcY, 2) }}</dd></template>
           <template v-if="p0.elevation !== null"><dt>Altitude</dt><dd>{{ fmtElevation(p0.elevation, p0.verticalDatum) }}</dd></template>
           <template v-if="p0.observedAt"><dt>Date</dt><dd>{{ fmtPeriod(p0.observedAt, p0.observedEnd) }}</dd></template>
@@ -87,7 +87,7 @@
       <h2 class="gs-h">Points et mesures</h2>
       <PointsChart v-if="chartField && chartable" :points="ds.points" :field="chartField" class="mb-4">
         <template #picker>
-          <v-select v-if="numericPointFields.length > 1" v-model="chartKey" :items="numericPointFields" item-title="label" item-value="key" hide-details density="compact" style="max-width: 220px" aria-label="Mesure affichée" />
+          <v-select v-if="numericPointFields.length > 1" v-model="chartKey" :items="numericPointFields" item-title="label" item-value="key" hide-details density="compact" style="max-width: 220px" aria-label="Displayed measurement" />
         </template>
       </PointsChart>
       <v-data-table :headers="pointHeaders" :items="pointRows" density="compact" :items-per-page="10" class="gs-table" />
@@ -96,7 +96,7 @@
     <section v-if="ds.files.length" class="mt-8">
       <h2 class="gs-h">Fichiers</h2>
       <v-alert v-if="!ds.can.download" type="info" variant="tonal" density="compact" class="mb-3">
-        Les fichiers de ce jeu sont réservés aux membres du projet.
+        Files for this dataset are restricted to project members.
       </v-alert>
       <div v-if="pictures.length && ds.can.download" class="gs-gallery">
         <button v-for="f in pictures" :key="f.id" class="gs-gallery__item" :aria-label="`Agrandir ${f.name}`" @click="zoom = f">
@@ -113,7 +113,7 @@
               prepend-icon="mdi-download"
               @click="downloadFile(f)"
             >
-              Télécharger
+              Download
             </v-btn>
             <v-icon v-else size="small">mdi-lock-outline</v-icon>
           </template>
@@ -122,7 +122,7 @@
       <v-dialog :model-value="!!zoom" max-width="1100" @update:model-value="zoom = null">
         <v-card v-if="zoom">
           <img :src="`${zoom.url}?inline=1`" :alt="zoom.name" style="width: 100%; display: block" />
-          <v-card-actions><span class="text-body-2 ml-2">{{ zoom.name }}</span><v-spacer /><v-btn :href="zoom.url" prepend-icon="mdi-download">Télécharger</v-btn></v-card-actions>
+          <v-card-actions><span class="text-body-2 ml-2">{{ zoom.name }}</span><v-spacer /><v-btn :href="zoom.url" prepend-icon="mdi-download">Download</v-btn></v-card-actions>
         </v-card>
       </v-dialog>
     </section>
@@ -314,9 +314,9 @@ const period = computed(() => fmtPeriod(props.ds.temporalStart, props.ds.tempora
 const authors = computed(() => (props.ds.authors || []).map((a) => a.name + (a.affiliation ? ` (${a.affiliation})` : '')).join(', '))
 const elevRange = computed(() => {
   const e = props.ds.points.map((p) => p.elevation).filter((v) => v !== null && v !== undefined)
-  if (!e.length) return 'non renseignée'
+  if (!e.length) return 'not provided'
   const mn = Math.min(...e), mx = Math.max(...e)
-  return mn === mx ? fmtElevation(mn) : `${fmtNumber(mn, 1)} à ${fmtElevation(mx)}`
+  return mn === mx ? fmtElevation(mn) : `${fmtNumber(mn, 1)} to ${fmtElevation(mx)}`
 })
 const pictures = computed(() => props.ds.files.filter((f) => f.kind === 'picture'))
 const otherFiles = computed(() => props.ds.files.filter((f) => f.kind !== 'picture' || !props.ds.can.download))
@@ -342,7 +342,7 @@ async function downloadFile(f) {
     URL.revokeObjectURL(url)
   } catch (e) {
     // with responseType 'blob', the error body is also a Blob
-    let msg = 'Téléchargement impossible'
+    let msg = 'Download failed'
     try {
       const body = JSON.parse(await e.response.data.text())
       msg = body.error || msg

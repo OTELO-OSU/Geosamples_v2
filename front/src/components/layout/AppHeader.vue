@@ -11,8 +11,8 @@
     </router-link>
 
     <nav v-if="isSite" class="gs-nav d-none d-md-flex">
-      <v-btn variant="text" to="/" exact>Carte</v-btn>
-      <v-btn variant="text" to="/a-propos">À propos</v-btn>
+      <v-btn variant="text" to="/" exact>Map</v-btn>
+      <v-btn variant="text" to="/a-propos">About</v-btn>
     </nav>
 
     <v-spacer />
@@ -20,18 +20,18 @@
     <template v-if="isSite && auth.isLogged">
       <v-menu v-if="can.canContribute">
         <template #activator="{ props }">
-          <v-btn color="primary" variant="flat" class="mr-2 d-none d-sm-flex" prepend-icon="mdi-plus" v-bind="props">Déposer</v-btn>
+          <v-btn color="primary" variant="flat" class="mr-2 d-none d-sm-flex" prepend-icon="mdi-plus" v-bind="props">Submit</v-btn>
         </template>
         <v-list density="compact">
-          <v-list-item to="/deposer" prepend-icon="mdi-form-select" title="Un jeu, via le formulaire" />
-          <v-list-item to="/importer" prepend-icon="mdi-table-arrow-up" title="Plusieurs jeux, depuis un tableur" />
+          <v-list-item to="/deposer" prepend-icon="mdi-form-select" title="One dataset, using the form" />
+          <v-list-item to="/importer" prepend-icon="mdi-table-arrow-up" title="Multiple datasets, using a spreadsheet" />
         </v-list>
       </v-menu>
-      <v-btn variant="text" to="/espace" class="d-none d-md-flex">Mes données</v-btn>
+      <v-btn variant="text" to="/espace" class="d-none d-md-flex">My data</v-btn>
       <v-btn v-if="can.canManage" variant="text" to="/administration" class="d-none d-md-flex">Administration</v-btn>
     </template>
 
-    <v-btn icon variant="text" :aria-label="dark ? 'Thème clair' : 'Thème sombre'" @click="toggleTheme">
+    <v-btn icon variant="text" :aria-label="dark ? 'Light theme' : 'Dark theme'" @click="toggleTheme">
       <v-icon>{{ dark ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
     </v-btn>
 
@@ -44,25 +44,25 @@
       <v-list density="compact" min-width="230">
         <v-list-item :title="auth.user.displayName" :subtitle="roleLabel" />
         <v-divider />
-        <v-list-item to="/profil" prepend-icon="mdi-account-outline" title="Mon profil" />
-        <v-list-item v-if="isSite" to="/espace" prepend-icon="mdi-folder-outline" title="Mes données" />
-        <v-list-item v-if="auth.isAdmin" to="/admin" prepend-icon="mdi-shield-crown-outline" title="Administration générale" />
-        <v-list-item v-if="isSite && siteStore.base !== '/'" href="/" prepend-icon="mdi-view-grid-outline" title="Tous les sites" />
-        <v-list-item prepend-icon="mdi-logout" title="Se déconnecter" @click="logout" />
+        <v-list-item to="/profil" prepend-icon="mdi-account-outline" title="My profile" />
+        <v-list-item v-if="isSite" to="/espace" prepend-icon="mdi-folder-outline" title="My data" />
+        <v-list-item v-if="auth.isAdmin" to="/admin" prepend-icon="mdi-shield-crown-outline" title="Global administration" />
+        <v-list-item v-if="isSite && siteStore.base !== '/'" href="/" prepend-icon="mdi-view-grid-outline" title="All sites" />
+        <v-list-item prepend-icon="mdi-logout" title="Sign out" @click="logout" />
       </v-list>
     </v-menu>
-    <v-btn v-else variant="outlined" class="ml-2" :to="{ name: 'login', query: { next: route.fullPath } }">Se connecter</v-btn>
+    <v-btn v-else variant="outlined" class="ml-2" :to="{ name: 'login', query: { next: route.fullPath } }">Sign in</v-btn>
   </v-app-bar>
 
   <v-navigation-drawer v-model="drawer" temporary location="left">
     <v-list nav>
       <template v-if="isSite">
-        <v-list-item to="/" exact prepend-icon="mdi-map-outline" title="Carte" />
-        <v-list-item to="/a-propos" prepend-icon="mdi-information-outline" title="À propos" />
+        <v-list-item to="/" exact prepend-icon="mdi-map-outline" title="Map" />
+        <v-list-item to="/a-propos" prepend-icon="mdi-information-outline" title="About" />
         <template v-if="auth.isLogged">
-          <v-list-item v-if="can.canContribute" to="/deposer" prepend-icon="mdi-plus" title="Déposer un jeu" />
-          <v-list-item v-if="can.canContribute" to="/importer" prepend-icon="mdi-table-arrow-up" title="Import en lot" />
-          <v-list-item to="/espace" prepend-icon="mdi-folder-outline" title="Mes données" />
+          <v-list-item v-if="can.canContribute" to="/deposer" prepend-icon="mdi-plus" title="Submit a dataset" />
+          <v-list-item v-if="can.canContribute" to="/importer" prepend-icon="mdi-table-arrow-up" title="Bulk import" />
+          <v-list-item to="/espace" prepend-icon="mdi-folder-outline" title="My data" />
           <v-list-item v-if="can.canManage" to="/administration" prepend-icon="mdi-cog-outline" title="Administration" />
         </template>
       </template>
@@ -94,9 +94,9 @@ const initials = computed(() => {
   return ((u.firstname?.[0] || '') + (u.lastname?.[0] || '') || u.email[0]).toUpperCase()
 })
 const roleLabel = computed(() => {
-  if (auth.isAdmin) return 'Administrateur'
+  if (auth.isAdmin) return 'Administrator'
   const r = can.value.role
-  return r === 'responsable' ? 'Responsable du site' : r === 'utilisateur' ? 'Contributeur' : can.value.pending ? 'Demande en attente' : ''
+  return r === 'responsable' ? 'Site manager' : r === 'utilisateur' ? 'Contributor' : can.value.pending ? 'Request pending' : ''
 })
 
 function toggleTheme() {

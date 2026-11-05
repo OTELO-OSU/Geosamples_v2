@@ -1,7 +1,7 @@
 /**
- * Systèmes de coordonnées proposés à la saisie et à l'import.
- * Toutes les positions sont stockées en WGS84 (EPSG:4326) ; la saisie d'origine
- * (système + X/Y) est conservée pour traçabilité.
+ * Coordinate systems available for data entry and import.
+ * All positions are stored in WGS84 (EPSG:4326); the original input
+ * (system + X/Y) is retained for traceability.
  */
 import proj4 from 'proj4'
 
@@ -14,14 +14,14 @@ const DEFS = {
 }
 
 export const CRS_OPTIONS = [
-  { value: 'EPSG:4326', title: 'WGS84 — degrés décimaux' },
+  { value: 'EPSG:4326', title: 'WGS84 — decimal degrees' },
   { value: 'EPSG:2154', title: 'RGF93 / Lambert-93' },
-  { value: 'EPSG:27572', title: 'NTF (Paris) / Lambert II étendu' },
+  { value: 'EPSG:27572', title: 'NTF (Paris) / extended Lambert II' },
   { value: 'EPSG:32631', title: 'WGS84 / UTM 31N' },
   { value: 'EPSG:32632', title: 'WGS84 / UTM 32N' },
   { value: 'EPSG:23031', title: 'ED50 / UTM 31N' },
   { value: 'EPSG:23032', title: 'ED50 / UTM 32N' },
-  { value: 'EPSG:3163', title: 'RGNC91-93 / Lambert Nouvelle-Calédonie' },
+  { value: 'EPSG:3163', title: 'RGNC91-93 / New Caledonia Lambert' },
   { value: 'EPSG:32758', title: 'WGS84 / UTM 58S' },
 ]
 
@@ -38,7 +38,7 @@ export function normalizeCrs(code) {
 function def(code) {
   if (code === 'EPSG:4326') return 'EPSG:4326'
   if (DEFS[code]) return DEFS[code]
-  const m = /^EPSG:32([67])(\d{2})$/.exec(code) // UTM WGS84 nord (326xx) / sud (327xx)
+  const m = /^EPSG:32([67])(\d{2})$/.exec(code) // UTM WGS84 north (326xx) / south (327xx)
   if (m) return `+proj=utm +zone=${+m[2]}${m[1] === '7' ? ' +south' : ''} +datum=WGS84 +units=m +no_defs`
   return null
 }
@@ -47,13 +47,13 @@ export function isSupported(code) { return def(normalizeCrs(code)) !== null }
 
 const num = (v) => (v === null || v === undefined || v === '' ? NaN : Number(String(v).replace(',', '.').replace(/\s/g, '')))
 
-/** Convertit (x, y) dans `code` en {lon, lat} WGS84. Lève une erreur si impossible. */
+/** Convert (x, y) in `code` to WGS84 {lon, lat}. Throws if conversion is not possible. */
 export function toWgs84(code, x, y) {
   const c = normalizeCrs(code)
   const d = def(c)
-  if (!d) throw new Error(`Système ${code} non pris en charge`)
+  if (!d) throw new Error(`Unsupported coordinate system: ${code}`)
   const X = num(x), Y = num(y)
-  if (!Number.isFinite(X) || !Number.isFinite(Y)) throw new Error('Coordonnées non numériques')
+  if (!Number.isFinite(X) || !Number.isFinite(Y)) throw new Error('Coordinates must be numeric')
   if (c === 'EPSG:4326') return { lon: X, lat: Y }
   const [lon, lat] = proj4(d, 'EPSG:4326', [X, Y])
   return { lon: Math.round(lon * 1e7) / 1e7, lat: Math.round(lat * 1e7) / 1e7 }

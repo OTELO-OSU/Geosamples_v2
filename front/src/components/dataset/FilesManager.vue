@@ -4,7 +4,7 @@
       <v-list-item v-for="f in existing" :key="'e' + f.id" :title="f.name" :subtitle="`${kindLabel(f.kind)} · ${fmtBytes(f.size)}`" :prepend-icon="f.kind === 'picture' ? 'mdi-image-outline' : 'mdi-file-outline'">
         <template #append><v-btn icon="mdi-delete-outline" variant="text" size="small" :aria-label="`Supprimer ${f.name}`" @click="$emit('delete', f)" /></template>
       </v-list-item>
-      <v-list-item v-for="(f, i) in queue" :key="'q' + i" :title="f.file.name" :subtitle="`${kindLabel(f.kind)} · ${fmtBytes(f.file.size)} · sera envoyé à l'enregistrement`" prepend-icon="mdi-upload-outline">
+      <v-list-item v-for="(f, i) in queue" :key="'q' + i" :title="f.file.name" :subtitle="`${kindLabel(f.kind)} · ${fmtBytes(f.file.size)} · will be uploaded when saved`" prepend-icon="mdi-upload-outline">
         <template #append>
           <v-select v-model="f.kind" :items="kinds" density="compact" hide-details style="width: 150px" variant="plain" aria-label="Type de fichier" />
           <v-btn icon="mdi-close" variant="text" size="small" aria-label="Retirer" @click="queue.splice(i, 1)" />
@@ -14,7 +14,7 @@
     <label class="gs-drop" :class="{ 'gs-drop--over': over }" @dragover.prevent="over = true" @dragleave="over = false" @drop.prevent="drop">
       <input type="file" multiple class="gs-drop__input" @change="(e) => addFiles(e.target.files)" />
       <v-icon size="28" color="primary">mdi-tray-arrow-up</v-icon>
-      <span><strong>Ajouter des fichiers</strong> — données brutes, photos, documents (glisser-déposer possible)</span>
+      <span><strong>Add files</strong> — raw data, photos, documents (drag and drop supported)</span>
     </label>
   </div>
 </template>
@@ -27,7 +27,7 @@ defineProps({ existing: { type: Array, default: () => [] } })
 defineEmits(['delete'])
 const queue = defineModel('queue', { type: Array, default: () => [] })
 const over = ref(false)
-const kinds = [{ value: 'data', title: 'Données' }, { value: 'picture', title: 'Photo' }, { value: 'document', title: 'Document' }]
+const kinds = [{ value: 'data', title: 'Data' }, { value: 'picture', title: 'Photo' }, { value: 'document', title: 'Document' }]
 const kindLabel = (k) => kinds.find((x) => x.value === k)?.title || k
 
 function addFiles(list) {

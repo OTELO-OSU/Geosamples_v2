@@ -1,47 +1,47 @@
 <template>
   <div class="gs-page">
-    <h1>Administration du site</h1>
+    <h1>Site administration</h1>
     <p class="text-muted mt-1">{{ site.title }}<template v-if="site.hostnames?.length"> — {{ site.hostnames[0] }}</template></p>
 
     <div class="gs-admin mt-6">
       <v-tabs v-model="tab" direction="vertical" color="primary" class="gs-admin__nav">
-        <v-tab value="presentation" prepend-icon="mdi-text-box-outline">Présentation</v-tab>
-        <v-tab value="map" prepend-icon="mdi-map-outline">Carte</v-tab>
-        <v-tab value="fields" prepend-icon="mdi-form-textbox">Champs</v-tab>
-        <v-tab value="import" prepend-icon="mdi-table-cog">Template d'import</v-tab>
-        <v-tab value="members" prepend-icon="mdi-account-group-outline">Membres</v-tab>
-        <v-tab value="settings" prepend-icon="mdi-tune">Règles</v-tab>
+        <v-tab value="presentation" prepend-icon="mdi-text-box-outline">Presentation</v-tab>
+        <v-tab value="map" prepend-icon="mdi-map-outline">Map</v-tab>
+        <v-tab value="fields" prepend-icon="mdi-form-textbox">Fields</v-tab>
+        <v-tab value="import" prepend-icon="mdi-table-cog">Import template</v-tab>
+        <v-tab value="members" prepend-icon="mdi-account-group-outline">Members</v-tab>
+        <v-tab value="settings" prepend-icon="mdi-tune">Settings</v-tab>
       </v-tabs>
 
       <div class="gs-admin__body">
         <template v-if="tab === 'presentation'">
-          <v-text-field v-model="cfg.title" label="Nom du site *" :error-messages="errors.title" />
-          <v-text-field v-model="cfg.subtitle" label="Sous-titre" />
-          <v-textarea v-model="cfg.description" label="Présentation courte (affichée à côté de la carte)" rows="4" hint="Markdown accepté" persistent-hint />
-          <v-textarea v-model="cfg.about" label="Page « À propos »" rows="10" class="mt-4" hint="Markdown accepté : contexte du projet, partenaires, financements, contacts…" persistent-hint />
-          <h3 class="mt-6 mb-2">Couleurs</h3>
+          <v-text-field v-model="cfg.title" label="Site name *" :error-messages="errors.title" />
+          <v-text-field v-model="cfg.subtitle" label="Subtitle" />
+          <v-textarea v-model="cfg.description" label="Short description (shown beside the map)" rows="4" hint="Markdown supported" persistent-hint />
+          <v-textarea v-model="cfg.about" label="About page" rows="10" class="mt-4" hint="Markdown supported: project context, partners, funding, contacts…" persistent-hint />
+          <h3 class="mt-6 mb-2">Colors</h3>
           <div class="d-flex flex-wrap ga-6">
             <label v-for="k in ['primary', 'secondary', 'accent']" :key="k" class="gs-color">
               <input v-model="cfg.theme[k]" type="color" />
-              <span>{{ { primary: 'Principale', secondary: 'Secondaire', accent: 'Accent' }[k] }}<br /><code>{{ cfg.theme[k] }}</code></span>
+              <span>{{ { primary: 'Primary', secondary: 'Secondary', accent: 'Accent' }[k] }}<br /><code>{{ cfg.theme[k] }}</code></span>
             </label>
           </div>
           <h3 class="mt-6 mb-2">Logo</h3>
           <div class="d-flex align-center ga-4">
-            <img v-if="site.logoUrl" :src="site.logoUrl" alt="Logo actuel" style="height: 48px" />
-            <v-file-input label="PNG, JPEG ou WebP, 2 Mo max." accept="image/png,image/jpeg,image/webp" density="compact" hide-details prepend-icon="" prepend-inner-icon="mdi-image-outline" style="max-width: 360px" @update:model-value="uploadLogo" />
+            <img v-if="site.logoUrl" :src="site.logoUrl" alt="Current logo" style="height: 48px" />
+            <v-file-input label="PNG, JPEG, or WebP, max. 2 MB" accept="image/png,image/jpeg,image/webp" density="compact" hide-details prepend-icon="" prepend-inner-icon="mdi-image-outline" style="max-width: 360px" @update:model-value="uploadLogo" />
           </div>
         </template>
 
         <template v-if="tab === 'map'">
-          <h3 class="mt-6 mb-2">Fonds de carte proposés</h3>
+          <h3 class="mt-6 mb-2">Available basemaps</h3>
           <div class="d-flex flex-wrap ga-x-6">
             <v-checkbox v-for="(b, k) in BASEMAPS" :key="k" v-model="cfg.map.basemaps" :value="k" :label="b.label" hide-details density="compact" />
           </div>
           <div class="gs-grid mt-4">
-            <v-select v-model="cfg.map.defaultBasemap" :items="basemapItems" label="Fond par défaut" />
-            <v-select v-model="cfg.map.colorBy" :items="colorItems" label="Couleur des points selon" />
-            <v-text-field v-model.number="cfg.map.clusterMaxZoom" type="number" min="5" max="20" label="Zoom à partir duquel tous les points sont affichés" hint="En dessous, les points sont regroupés par le serveur quand ils sont nombreux" persistent-hint />
+            <v-select v-model="cfg.map.defaultBasemap" :items="basemapItems" label="Default basemap" />
+            <v-select v-model="cfg.map.colorBy" :items="colorItems" label="Color points by" />
+            <v-text-field v-model.number="cfg.map.clusterMaxZoom" type="number" min="5" max="20" label="Zoom level at which all points are shown" hint="Below this level, the server clusters points when there are many" persistent-hint />
           </div>
         </template>
 
@@ -50,26 +50,26 @@
         <MembersManager v-if="tab === 'members'" :slug="site.slug" />
 
         <template v-if="tab === 'settings'">
-          <v-switch v-model="cfg.settings.moderation" color="primary" inset label="Les dépôts des utilisateurs sont validés par un responsable avant publication" />
-          <v-switch v-model="cfg.settings.allowJoinRequests" color="primary" inset label="Les personnes connectées peuvent demander à contribuer" />
-          <v-switch v-model="cfg.settings.requireKeywords" color="primary" inset label="Au moins un mot-clé est obligatoire" />
+          <v-switch v-model="cfg.settings.moderation" color="primary" inset label="User submissions must be reviewed by a manager before publication" />
+          <v-switch v-model="cfg.settings.allowJoinRequests" color="primary" inset label="Signed-in users can request contributor access" />
+          <v-switch v-model="cfg.settings.requireKeywords" color="primary" inset label="At least one keyword is required" />
           <div class="gs-grid mt-2">
-            <v-select v-model="cfg.settings.defaultAccessRight" :items="[{ value: 'open', title: 'Ouvert à tous' }, { value: 'restricted', title: 'Réservé aux membres' }]" label="Accès aux fichiers par défaut" />
-            <v-select v-model="cfg.settings.defaultLicense" :items="LICENSES" label="Licence par défaut" />
-            <v-text-field v-model="cfg.settings.verticalDatum" label="Référentiel altimétrique par défaut" placeholder="NGF-IGN69, EGM2008…" />
+            <v-select v-model="cfg.settings.defaultAccessRight" :items="[{ value: 'open', title: 'Open to everyone' }, { value: 'restricted', title: 'Restricted to members' }]" label="Default file access" />
+            <v-select v-model="cfg.settings.defaultLicense" :items="LICENSES" label="Default license" />
+            <v-text-field v-model="cfg.settings.verticalDatum" label="Default vertical datum" placeholder="NGF-IGN69, EGM2008…" />
             <v-text-field v-model="cfg.settings.contactEmail" label="E-mail de contact" :error-messages="errors['settings.contactEmail']" />
-            <v-text-field v-model="cfg.settings.ordarUrl" label="Adresse de l'entrepôt ORDaR" class="gs-span-2" />
+            <v-text-field v-model="cfg.settings.ordarUrl" label="ORDaR repository URL" class="gs-span-2" />
           </div>
           <template v-if="auth.isAdmin">
-            <h3 class="mt-6 mb-2">Réservé aux administrateurs</h3>
-            <v-combobox v-model="cfg.hostnames" label="Noms d'hôte servant ce site" multiple chips closable-chips hint="ex. nometal.otelo.univ-lorraine.fr — à déclarer aussi dans le reverse proxy" persistent-hint :error-messages="errors.hostnames" />
-            <v-switch v-model="cfg.published" color="primary" inset label="Site visible publiquement" class="mt-2" />
+            <h3 class="mt-6 mb-2">Administrator-only settings</h3>
+            <v-combobox v-model="cfg.hostnames" label="Hostnames serving this site" multiple chips closable-chips hint="e.g. nometal.otelo.univ-lorraine.fr — also configure it in the reverse proxy" persistent-hint :error-messages="errors.hostnames" />
+            <v-switch v-model="cfg.published" color="primary" inset label="Site is publicly visible" class="mt-2" />
           </template>
         </template>
 
         <div v-if="tab !== 'members'" class="gs-bar">
           <v-spacer />
-          <v-btn color="primary" :loading="saving" @click="save">Enregistrer</v-btn>
+          <v-btn color="primary" :loading="saving" @click="save">Save</v-btn>
         </div>
       </div>
     </div>
@@ -109,7 +109,7 @@ const cfg = ref(clone(site.value))
 
 const basemapItems = computed(() => cfg.value.map.basemaps.map((k) => ({ value: k, title: BASEMAPS[k]?.label || k })))
 const colorItems = computed(() => [
-  { value: 'none', title: 'Couleur unique' }, { value: 'elevation', title: 'Altitude' }, { value: 'year', title: 'Année' },
+  { value: 'none', title: 'Single color' }, { value: 'elevation', title: 'Elevation' }, { value: 'year', title: 'Year' },
   ...cfg.value.fields.filter((f) => ['select', 'number', 'integer', 'boolean'].includes(f.type)).map((f) => ({ value: f.key, title: f.label })),
 ])
 
@@ -121,7 +121,7 @@ async function save() {
     siteStore.site = data
     cfg.value = clone(data)
     applySiteTheme(vtheme, data.theme)
-    ui.notify('Configuration enregistrée')
+    ui.notify('Settings saved')
   } catch (e) {
     errors.value = errorDetails(e)
     ui.error(errorMessage(e))
@@ -137,7 +137,7 @@ async function uploadLogo(f) {
   fd.append('file', file)
   try {
     siteStore.site = (await api.post(`/api/sites/${site.value.slug}/logo`, fd)).data
-    ui.notify('Logo mis à jour')
+    ui.notify('Logo updated')
   } catch (e) {
     ui.error(errorMessage(e))
   }

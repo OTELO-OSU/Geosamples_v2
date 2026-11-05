@@ -1,36 +1,36 @@
 # GeoSamples v2
 
-Refonte de [geo-samples](https://github.com/OTELO-OSU/geo-samples) : **une seule base de code et une
-seule instance** pour tous les sites de valorisation de jeux de données géolocalisés de l'OTELo
-(nometal, orne, …), qu'ils soient en attente ou en complément d'une publication dans
+An overhaul of [geo-samples](https://github.com/OTELO-OSU/geo-samples): **a single codebase and
+instance** for all OTELo geospatial data valorization sites (nometal, orne, ...), whether they are
+pending or complementing publication in
 [ORDaR v2](https://ordar.otelo.univ-lorraine.fr).
 
-Elle reprend la pile technique d'ORDaR v2 : **Symfony 7.4, Doctrine, PostgreSQL, JWT (lexik)** côté
-serveur, **Vue 3, Vite, Vuetify 3, Pinia, Leaflet + markercluster** côté navigateur, le tout livré en
-conteneurs **nginx + php-fpm**.
+It uses the ORDaR v2 technology stack: **Symfony 7.4, Doctrine, PostgreSQL, JWT (lexik)** on the
+server, **Vue 3, Vite, Vuetify 3, Pinia, Leaflet + markercluster** in the browser, all delivered in
+**nginx + php-fpm** containers.
 
-## Ce que fait l'application
+## What the application does
 
-| Besoin | Réponse |
+| Need | Solution |
 |---|---|
-| Un seul code, une seule instance | Chaque site est une ligne en base (`site`) : textes, logo, couleurs, emprise et fonds de carte, champs, filtres, template d'import. Le site est choisi d'après le **nom d'hôte** (`nometal.otelo.univ-lorraine.fr`) ou le chemin `/s/<slug>/`. Créer un site = un formulaire dans « Administration générale », sans redéploiement. |
-| Carte avec regroupements selon le zoom | Regroupement **côté serveur** sur une grille Web-Mercator dont la maille dépend du zoom (des millions de points restent fluides), puis markercluster côté navigateur au-delà d'un seuil. Les observations répétées d'une même station sont fusionnées en un marqueur. |
-| Données temporelles | Période du jeu (`temporal_start/end`) et date ou période **par point** (séries temporelles). Frise temporelle (histogramme + sélection de période) sous la carte, graphique des mesures dans la fiche. |
-| Données 3D | Chaque point a longitude, latitude (WGS84) et **altitude** (m, négative pour une profondeur) avec son référentiel vertical (NGF-IGN69 par défaut). Filtre d'altitude, couleur par altitude. Saisie possible en Lambert 93, Lambert II étendu, UTM, ED50, RGNC91 : la saisie d'origine est conservée. |
-| Dépôt par formulaire | Formulaire généré à partir des champs du site, placement des points au clic sur la carte, fichiers et photos. |
-| Import en lot | Template **personnalisable par site** (colonnes, libellés, exemples, consignes), téléchargeable en XLSX (listes déroulantes, feuille d'aide) ou CSV ; modèle **d'après un jeu existant** ; contrôle ligne par ligne avant import ; import tout-ou-rien. |
-| Modifier un jeu existant | Formulaire, ou **modification en lot** : exporter des jeux (ils portent leur `dataset_id`), corriger le tableur, réimporter. |
-| Rôles | **admin** (global), **responsable** et **utilisateur** (par site). Circuit brouillon → soumis → publié/refusé, modération activable par site, demandes d'adhésion. |
-| Fédération RENATER | OIDC via un Keycloak raccordé à la fédération (comme Projet_IGSN), ou en-têtes Apache `mod_shib` / CAS (comme ORDaR). Comptes locaux possibles pour l'amorçage. Voir [docs/federation.md](docs/federation.md). |
+| A single codebase and instance | Each site is a database row (`site`) containing its text, logo, colors, map extent and basemaps, fields, filters, and import template. The site is selected by **hostname** (`nometal.otelo.univ-lorraine.fr`) or the `/s/<slug>/` path. Create a site using the form in “Global administration”; no redeployment is needed. |
+| Map clustering by zoom level | **Server-side** clustering on a Web Mercator grid whose cell size depends on zoom (millions of points remain responsive), followed by browser-side markercluster above a threshold. Repeated observations from the same station are merged into one marker. |
+| Temporal data | Dataset period (`temporal_start/end`) and **per-point** date or period (time series). A timeline (histogram + period selector) appears below the map, with a measurements chart on the detail page. |
+| 3D data | Each point has longitude, latitude (WGS84), and **elevation** (m, negative for depth) with its vertical datum (NGF-IGN69 by default). Filter by elevation or color by elevation. Input is supported in Lambert 93, extended Lambert II, UTM, ED50, and RGNC91; the original coordinates are retained. |
+| Form-based submission | A form generated from the site's fields, point placement by clicking the map, and file and photo attachments. |
+| Bulk import | A **site-customizable** template (columns, labels, examples, instructions), downloadable as XLSX (dropdown lists, help sheet) or CSV; a template **based on an existing dataset**; row-by-row validation before import; all-or-nothing import. |
+| Edit an existing dataset | Use the form or **bulk editing**: export datasets (they include their `dataset_id`), edit the spreadsheet, then re-import it. |
+| Roles | **admin** (global), **manager**, and **user** (per site). Workflow: draft → submitted → published/rejected; moderation can be enabled per site, and users can request membership. |
+| RENATER federation | OIDC through a Keycloak connected to the federation (as with Projet_IGSN), or Apache `mod_shib` / CAS headers (as with ORDaR). Local accounts are available for initial setup. See [docs/federation.md](docs/federation.md). |
 
-Le passage d'un jeu dans ORDaR est tracé par son DOI : la fiche affiche alors le lien vers l'entrepôt.
+When a dataset is added to ORDaR, its DOI is recorded and the detail page displays a link to the repository.
 
-## Démarrer en local (sans Docker)
+## Run locally (without Docker)
 
 Prérequis : PHP ≥ 8.2 (pdo_pgsql, intl), Composer, Node 22+, PostgreSQL 16+.
 
 ```sh
-# Base
+# Database
 createuser -P geosamples && createdb -O geosamples geosamples
 
 # Backend
@@ -40,40 +40,40 @@ mkdir -p config/jwt
 openssl genpkey -algorithm RSA -out config/jwt/private.pem -aes256 -pass pass:change-me-jwt-passphrase -pkeyopt rsa_keygen_bits:2048
 openssl pkey -in config/jwt/private.pem -passin pass:change-me-jwt-passphrase -pubout -out config/jwt/public.pem
 php bin/console doctrine:migrations:migrate -n
-php bin/console app:demo:load          # 2 sites et des données FICTIVES de démonstration
+php bin/console app:demo:load          # 2 sites and fictional demo data
 php -S 127.0.0.1:8000 -t public
 
-# Front (autre terminal) — /api est relayé vers 127.0.0.1:8000
+# Frontend (another terminal) — /api is proxied to 127.0.0.1:8000
 cd front && npm ci && npm run dev
 ```
 
-Puis http://localhost:5173 (portail), http://localhost:5173/s/nometal/ et http://localhost:5173/s/orne/.
-Comptes de démonstration (mot de passe `demo-geosamples`) : `admin@example.org`,
+Then open http://localhost:5173 (portal), http://localhost:5173/s/nometal/, or http://localhost:5173/s/orne/.
+Demo accounts (password `demo-geosamples`): `admin@example.org`,
 `responsable.nometal@example.org`, `responsable.orne@example.org`, `contributeur@example.org`.
 
-Tests : `cd backend && vendor/bin/phpunit` (une base `geosamples_test` est nécessaire, cf. `.env.test`).
+Tests: `cd backend && vendor/bin/phpunit` (a `geosamples_test` database is required; see `.env.test`).
 
-## Déployer
+## Deploy
 
 ```sh
-cp .env.example .env        # secrets, FEDERATION_MODE…
+cp .env.example .env        # secrets, FEDERATION_MODE...
 docker compose up -d --build
 docker compose exec php php bin/console app:user:create vous@univ-lorraine.fr --admin --password '…'
 ```
 
-nginx écoute sur `127.0.0.1:57010`. Le reverse proxy Apache de l'hôte (qui porte déjà TLS/certbot)
-envoie **tous** les noms d'hôte des sites vers ce port, en conservant l'en-tête `Host`
-(`ProxyPreserveHost On`) : c'est lui qui désigne le site. Exemple complet dans
+nginx listens on `127.0.0.1:57010`. The host's Apache reverse proxy (which already handles TLS/certbot)
+sends **all** site hostnames to this port while preserving the `Host` header
+(`ProxyPreserveHost On`), which identifies the site. See the complete example in
 [docs/deploiement.md](docs/deploiement.md).
 
-Ajouter un site de valorisation :
-1. Administration générale → « Nouveau site » (nom, identifiant, nom d'hôte, responsable).
-2. Déclarer le nom d'hôte dans Apache (un `ServerAlias` de plus) et dans le client Keycloak (URI de redirection).
-3. Le responsable configure textes, carte, champs et template depuis « Administration ».
+Add a data site:
+1. Go to Global administration → “New site” (name, identifier, hostname, manager).
+2. Add the hostname in Apache (another `ServerAlias`) and in the Keycloak client (redirect URI).
+3. The manager configures the text, map, fields, and template under “Administration”.
 
-## Reprise des anciens sites geo-samples
+## Migrating legacy geo-samples sites
 
-Depuis les fichiers bson:
+From the BSON files:
 ```
 docker exec -e APP_ENV=prod -w /var/www/backend geosamples-php php bin/console app:site:create \
 acev athabasca gitology moris nometal orne scandium \
@@ -82,44 +82,43 @@ petrophysics-guadeloupe petrophysics-limagne petrophysics-pyrenees \
 petrophysics-soultz petrophysics-vosges
 ```
 
-Dry run: 
+Dry run:
 ```sh
 PHP_CONTAINER=geosamples-php FILES_DIR=/var/www/backend/var/uploads PHP_WORKDIR=/var/www/backend ONLY=nometal ./migrate_all.sh ./ORDAR/*
 ```
 
-Vrai import: 
+Import:
 ``` sh
 RUN=1 PHP_CONTAINER=geosamples-php FILES_DIR=/var/www/backend/var/uploads PHP_WORKDIR=/var/www/backend ./migrate_all.sh ./ORDAR/
 ```
-Import avec mongoexport:
+Import using mongoexport:
 
 ```sh
 mongoexport --db=<base> --collection=<collection> --jsonArray -o export.json
 php bin/console app:legacy:import <slug> export.json --dry-run --create-fields
-php bin/console app:legacy:import <slug> export.json --create-fields --files-dir=/chemin/des/fichiers
+php bin/console app:legacy:import <slug> export.json --create-fields --files-dir=/path/to/files
 ```
 
-La commande convertit `INTRO.*`, `SAMPLING_POINT` (dont Lambert 93 → WGS84), `SUPPLEMENTARY_FIELDS`
-(en champs du site) et rattache les fichiers par leur nom. Elle a été écrite d'après la documentation
-de geo-samples : **lancez-la d'abord en `--dry-run` sur un export réel**.
+The command converts `INTRO.*`, `SAMPLING_POINT` (including Lambert 93 → WGS84), and `SUPPLEMENTARY_FIELDS`
+into site fields, and links files by name. It was written based on the geo-samples documentation:
+**always run it first with `--dry-run` on a real export**.
 
-## Organisation du code
+## Code organization
 
 ```
 backend/                Symfony 7.4
   src/Entity            Site, SiteMembership, User, Dataset, SamplingPoint, DatasetFile, RefreshToken
-  src/Controller        API JSON (/api/…) — liste des routes en tête de chaque contrôleur
-  src/Service           DatasetQuery (recherche, carte, facettes), DatasetWriter (validation),
+  src/Controller        JSON API (/api/…) — routes are listed at the top of each controller
+  src/Service           DatasetQuery (search, map, facets), DatasetWriter (validation),
                         ImportService, FieldSchema, FederationService, AuthService, Permissions
   src/Command           app:user:create, app:demo:load, app:legacy:import, app:auth:purge
   tests/                PHPUnit (unitaires + API)
 front/                  Vue 3 + Vuetify
-  src/views             MapView (carte + filtres + liste + aperçu), DatasetView, DatasetEditView,
+  src/views             MapView (map + filters + list + preview), DatasetView, DatasetEditView,
                         ImportView, WorkspaceView, SiteAdminView, GlobalAdminView, PortalView…
   src/components/map    SampleMap, TimelineBar, FilterPanel, MapLegend
 docker/                 nginx (front compilé + relais /api), php-fpm (entrypoint : JWT, migrations)
-docs/                   architecture, fédération, déploiement
+docs/                   architecture, federation, deployment
 ```
 
-Voir [docs/architecture.md](docs/architecture.md) pour le modèle de données, les règles d'autorisation
-et le format d'import.
+See [docs/architecture.md](docs/architecture.md) for the data model, authorization rules, and import format.
